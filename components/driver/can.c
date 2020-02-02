@@ -31,6 +31,10 @@
 #include "soc/can_periph.h"
 #include "hal/can_hal.h"
 
+// assertion is used for mandatory code, make sure it works in release
+#undef assert
+#define assert(x) if(x) {}
+
 /* ---------------------------- Definitions --------------------------------- */
 //Internal Macros
 #define CAN_CHECK(cond, ret_val) ({                                         \
@@ -94,6 +98,8 @@ static portMUX_TYPE can_spinlock = portMUX_INITIALIZER_UNLOCKED;
 #define CAN_EXIT_CRITICAL_ISR()     portEXIT_CRITICAL_ISR(&can_spinlock)
 #define CAN_ENTER_CRITICAL()        portENTER_CRITICAL(&can_spinlock)
 #define CAN_EXIT_CRITICAL()         portEXIT_CRITICAL(&can_spinlock)
+
+static int *sTransmitNotifyPtr;
 
 static can_hal_context_t can_context;
 
@@ -200,6 +206,7 @@ static inline void can_handle_rx_buffer_frames(BaseType_t *task_woken, int *aler
         can_hal_read_rx_buffer_and_clear(&can_context, &frame);
         //Copy frame into RX Queue
         if (xQueueSendFromISR(p_can_obj->rx_queue, &frame, task_woken) == pdTRUE) {
+            *alert_req = 1;     // neonious
             p_can_obj->rx_msg_count++;
         } else {
             p_can_obj->rx_missed_count++;
@@ -214,11 +221,16 @@ static inline void can_handle_tx_buffer_frame(BaseType_t *task_woken, int *alert
 {
     //Handle previously transmitted frame
     if (can_hal_check_last_tx_successful(&can_context)) {
+        if(sTransmitNotifyPtr)
+            *sTransmitNotifyPtr = 1;
         can_alert_handler(CAN_ALERT_TX_SUCCESS, alert_req);
     } else {
+        if(sTransmitNotifyPtr)
+            *sTransmitNotifyPtr = 2;
         p_can_obj->tx_failed_count++;
         can_alert_handler(CAN_ALERT_TX_FAILED, alert_req);
     }
+    sTransmitNotifyPtr = NULL;
 
     //Update TX message count
     p_can_obj->tx_msg_count--;
@@ -229,6 +241,7 @@ static inline void can_handle_tx_buffer_frame(BaseType_t *task_woken, int *alert
         can_hal_frame_t frame;
         int res = xQueueReceiveFromISR(p_can_obj->tx_queue, &frame, task_woken);
         if (res == pdTRUE) {
+            sTransmitNotifyPtr = frame.notifyPtr;
             can_hal_set_tx_buffer_and_transmit(&can_context, &frame);
         } else {
             assert(false && "failed to get a frame from TX queue");
@@ -239,6 +252,8 @@ static inline void can_handle_tx_buffer_frame(BaseType_t *task_woken, int *alert
         can_alert_handler(CAN_ALERT_TX_IDLE, alert_req);
     }
 }
+
+void can_interrupt_handler();   // neonious
 
 static void can_intr_handler_main(void *arg)
 {
@@ -293,7 +308,9 @@ static void can_intr_handler_main(void *arg)
         //Give semaphore if alerts were triggered
         xSemaphoreGiveFromISR(p_can_obj->alert_semphr, &task_woken);
     }
-    if (task_woken == pdTRUE) {
+    if(alert_req)
+        can_interrupt_handler();
+    if (alert_req || task_woken == pdTRUE) {
         portYIELD_FROM_ISR();
     }
 }
@@ -498,7 +515,7 @@ esp_err_t can_stop(void)
     return ESP_OK;
 }
 
-esp_err_t can_transmit(const can_message_t *message, TickType_t ticks_to_wait)
+esp_err_t can_transmit(const can_message_t *message, TickType_t ticks_to_wait, int *notifyPtr)
 {
     //Check arguments
     CAN_CHECK(p_can_obj != NULL, ESP_ERR_INVALID_STATE);
@@ -512,11 +529,13 @@ esp_err_t can_transmit(const can_message_t *message, TickType_t ticks_to_wait)
     //Format frame
     esp_err_t ret = ESP_FAIL;
     can_hal_frame_t tx_frame;
+    tx_frame.notifyPtr = notifyPtr;
     can_hal_format_frame(message, &tx_frame);
 
     //Check if frame can be sent immediately
     if ((p_can_obj->tx_msg_count == 0) && !(p_can_obj->control_flags & CTRL_FLAG_TX_BUFF_OCCUPIED)) {
         //No other frames waiting to transmit. Bypass queue and transmit immediately
+        sTransmitNotifyPtr = tx_frame.notifyPtr;
         can_hal_set_tx_buffer_and_transmit(&can_context, &tx_frame);
         p_can_obj->tx_msg_count++;
         CAN_SET_FLAG(p_can_obj->control_flags, CTRL_FLAG_TX_BUFF_OCCUPIED);
@@ -540,6 +559,7 @@ esp_err_t can_transmit(const can_message_t *message, TickType_t ticks_to_wait)
                 //TX buffer was freed during copy, manually trigger transmission
                 int res = xQueueReceive(p_can_obj->tx_queue, &tx_frame, 0);
                 assert(res == pdTRUE);
+                sTransmitNotifyPtr = tx_frame.notifyPtr;
                 can_hal_set_tx_buffer_and_transmit(&can_context, &tx_frame);
                 p_can_obj->tx_msg_count++;
                 CAN_SET_FLAG(p_can_obj->control_flags, CTRL_FLAG_TX_BUFF_OCCUPIED);

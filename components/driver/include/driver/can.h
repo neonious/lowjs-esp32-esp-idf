@@ -224,7 +224,7 @@ esp_err_t can_stop(void);
  *      - ESP_ERR_INVALID_STATE: CAN driver is not in running state, or is not installed
  *      - ESP_ERR_NOT_SUPPORTED: Listen Only Mode does not support transmissions
  */
-esp_err_t can_transmit(const can_message_t *message, TickType_t ticks_to_wait);
+esp_err_t can_transmit(const can_message_t *message, TickType_t ticks_to_wait, int *notifyPtr);
 
 /**
  * @brief   Receive a CAN message

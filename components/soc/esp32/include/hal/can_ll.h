@@ -66,6 +66,7 @@ typedef union {
             uint8_t single_shot: 1;     //This frame should be transmitted using single shot command
             uint8_t rtr: 1;             //This frame is a remote transmission request
             uint8_t frame_format: 1;    //Format of the frame (1 = extended, 0 = standard)
+            int *notifyPtr;
         };
         union {
             struct {
@@ -79,7 +80,7 @@ typedef union {
             } extended;
         };
     };
-    uint8_t bytes[13];
+    uint8_t bytes[13 + 4];
 } __attribute__((packed)) can_ll_frame_buffer_t;
 
 /* ---------------------------- Mode Register ------------------------------- */
