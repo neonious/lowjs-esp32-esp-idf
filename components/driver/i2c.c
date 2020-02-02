@@ -1001,6 +1001,8 @@ esp_err_t i2c_master_read(i2c_cmd_handle_t cmd_handle, uint8_t* data, size_t dat
     }
 }
 
+void user_i2c_interrupt_done(i2c_port_t port, uint8_t ok);
+
 static void IRAM_ATTR i2c_master_cmd_begin_static(i2c_port_t i2c_num)
 {
     i2c_obj_t* p_i2c = p_i2c_obj[i2c_num];
@@ -1019,6 +1021,7 @@ static void IRAM_ATTR i2c_master_cmd_begin_static(i2c_port_t i2c_num)
             || (p_i2c->status == I2C_STATUS_TIMEOUT)) {
         evt.type = I2C_CMD_EVT_DONE;
         xQueueOverwriteFromISR(p_i2c->cmd_evt_queue, &evt, &HPTaskAwoken);
+        user_i2c_interrupt_done(i2c_num, 0);
         return;
     } else if (p_i2c->status == I2C_STATUS_DONE) {
         return;
@@ -1028,6 +1031,7 @@ static void IRAM_ATTR i2c_master_cmd_begin_static(i2c_port_t i2c_num)
         p_i2c->cmd_link.cur = NULL;
         evt.type = I2C_CMD_EVT_DONE;
         xQueueOverwriteFromISR(p_i2c->cmd_evt_queue, &evt, &HPTaskAwoken);
+        user_i2c_interrupt_done(i2c_num, 1);
         // Return to the IDLE status after cmd_eve_done signal were send out.
         p_i2c->status = I2C_STATUS_IDLE;
         return;
