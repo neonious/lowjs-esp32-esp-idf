@@ -29,16 +29,12 @@ typedef portMUX_TYPE multi_heap_lock_t;
 /* Because malloc/free can happen inside an ISR context,
    we need to use portmux spinlocks here not RTOS mutexes */
 #define MULTI_HEAP_LOCK(PLOCK) do {                         \
-        if((PLOCK) != NULL) {                               \
             portENTER_CRITICAL((PLOCK));                    \
-        }                                                   \
     } while(0)
 
 
 #define MULTI_HEAP_UNLOCK(PLOCK) do {                       \
-        if ((PLOCK) != NULL) {                              \
             portEXIT_CRITICAL((PLOCK));                     \
-        }                                                   \
     } while(0)
 
 #define MULTI_HEAP_LOCK_INIT(PLOCK) do {                    \
