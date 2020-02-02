@@ -326,6 +326,15 @@ esp_err_t gpio_config(const gpio_config_t *pGPIOConfig)
                 rtc_gpio_deinit(io_num);
             }
 
+            // Moved this up because otherwise https://github.com/neonious/lowjs_esp32_examples/tree/master/drivers/sensors/dht11.js would not work!
+            gpio_set_intr_type(io_num, pGPIOConfig->intr_type);
+
+            if (pGPIOConfig->intr_type) {
+                gpio_intr_enable(io_num);
+            } else {
+                gpio_intr_disable(io_num);
+            }
+
             if ((pGPIOConfig->mode) & GPIO_MODE_DEF_INPUT) {
                 input_en = 1;
                 gpio_input_enable(io_num);
@@ -362,14 +371,6 @@ esp_err_t gpio_config(const gpio_config_t *pGPIOConfig)
             }
 
             ESP_LOGI(GPIO_TAG, "GPIO[%d]| InputEn: %d| OutputEn: %d| OpenDrain: %d| Pullup: %d| Pulldown: %d| Intr:%d ", io_num, input_en, output_en, od_en, pu_en, pd_en, pGPIOConfig->intr_type);
-            gpio_set_intr_type(io_num, pGPIOConfig->intr_type);
-
-            if (pGPIOConfig->intr_type) {
-                gpio_intr_enable(io_num);
-            } else {
-                gpio_intr_disable(io_num);
-            }
-
             PIN_FUNC_SELECT(io_reg, PIN_FUNC_GPIO); /*function number 2 is GPIO_FUNC for each pin */
         }
 
