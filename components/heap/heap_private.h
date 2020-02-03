@@ -15,10 +15,10 @@
 
 #include <stdlib.h>
 #include <stdint.h>
+#include <freertos/FreeRTOS.h>
 #include <soc/soc_memory_layout.h>
 #include "multi_heap.h"
-#include "multi_heap_platform.h"
-#include "sys/queue.h"
+#include "rom/queue.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -28,14 +28,12 @@ extern "C" {
    for heap_caps_init.c to share heap information with heap_caps.c
 */
 
-#define HEAP_SIZE_MAX (SOC_MAX_CONTIGUOUS_RAM_SIZE)
-
 /* Type for describing each registered heap */
 typedef struct heap_t_ {
     uint32_t caps[SOC_MEMORY_TYPE_NO_PRIOS]; ///< Capabilities for the type of memory in this heap (as a prioritised set). Copied from soc_memory_types so it's in RAM not flash.
     intptr_t start;
     intptr_t end;
-    multi_heap_lock_t heap_mux;
+    portMUX_TYPE heap_mux;
     multi_heap_handle_t heap;
     SLIST_ENTRY(heap_t_) next;
 } heap_t;

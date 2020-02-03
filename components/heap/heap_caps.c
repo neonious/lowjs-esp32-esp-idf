@@ -22,6 +22,11 @@
 #include "esp_log.h"
 #include "heap_private.h"
 
+bool alloc_use_fund();
+
+static void *gZeroPtr =
+        (void *)0xDEADBEEF; // not 32-bit aligned, will not be given normally
+
 /*
 This file, combined with a region allocator that supports multiple heaps, solves the problem that the ESP32 has RAM
 that's slightly heterogeneous. Some RAM can be byte-accessed, some allows only 32-bit accesses, some can execute memory,
@@ -33,25 +38,26 @@ possible. This should optimize the amount of RAM accessible to the code without 
 
 /*
   This takes a memory chunk in a region that can be addressed as both DRAM as well as IRAM. It will convert it to
-  IRAM in such a way that it can be later freed. It assumes both the address as well as the length to be word-aligned.
+  IRAM in such a way that it can be later freed. It assumes both the address as wel as the length to be word-aligned.
   It returns a region that's 1 word smaller than the region given because it stores the original Dram address there.
+
+  In theory, we can also make this work by prepending a struct that looks similar to the block link struct used by the
+  heap allocator itself, which will allow inspection tools relying on any block returned from any sort of malloc to
+  have such a block in front of it, work. We may do this later, if/when there is demand for it. For now, a simple
+  pointer is used.
 */
 IRAM_ATTR static void *dram_alloc_to_iram_addr(void *addr, size_t len)
 {
-    uintptr_t dstart = (uintptr_t)addr; //First word
-    uintptr_t dend = dstart + len; //Last word + 4
-    assert(esp_ptr_in_diram_dram((void *)dstart));
-    assert(esp_ptr_in_diram_dram((void *)dend));
+    uint32_t dstart = (int)addr; //First word
+    uint32_t dend = ((int)addr) + len - 4; //Last word
+    assert(dstart >= SOC_DIRAM_DRAM_LOW);
+    assert(dend <= SOC_DIRAM_DRAM_HIGH);
     assert((dstart & 3) == 0);
     assert((dend & 3) == 0);
-#if SOC_DIRAM_INVERTED
     uint32_t istart = SOC_DIRAM_IRAM_LOW + (SOC_DIRAM_DRAM_HIGH - dend);
-#else
-    uint32_t istart = SOC_DIRAM_IRAM_LOW + (dstart - SOC_DIRAM_DRAM_LOW);
-#endif
     uint32_t *iptr = (uint32_t *)istart;
     *iptr = dstart;
-    return iptr + 1;
+    return (void *)(iptr + 1);
 }
 
 bool heap_caps_match(const heap_t *heap, uint32_t caps)
@@ -64,13 +70,10 @@ Routine to allocate a bit of memory with certain capabilities. caps is a bitfiel
 */
 IRAM_ATTR void *heap_caps_malloc( size_t size, uint32_t caps )
 {
-    void *ret = NULL;
+    if(size == 0)
+        return gZeroPtr;
 
-    if (size > HEAP_SIZE_MAX) {
-        // Avoids int overflow when adding small numbers to size, or
-        // calculating 'end' from start+size, by limiting 'size' to the possible range
-        return NULL;
-    }
+    void *ret = NULL;
 
     if (caps & MALLOC_CAP_EXEC) {
         //MALLOC_CAP_EXEC forces an alloc from IRAM. There is a region which has both this as well as the following
@@ -87,9 +90,10 @@ IRAM_ATTR void *heap_caps_malloc( size_t size, uint32_t caps )
         /* 32-bit accessible RAM should allocated in 4 byte aligned sizes
          * (Future versions of ESP-IDF should possibly fail if an invalid size is requested)
          */
-        size = (size + 3) & (~3); // int overflow checked above
+        size = (size + 3) & (~3);
     }
 
+retry:
     for (int prio = 0; prio < SOC_MEMORY_TYPE_NO_PRIOS; prio++) {
         //Iterate over heaps and check capabilities at this priority
         heap_t *heap;
@@ -102,14 +106,13 @@ IRAM_ATTR void *heap_caps_malloc( size_t size, uint32_t caps )
                 //doesn't cover, see if they're available in other prios.
                 if ((get_all_caps(heap) & caps) == caps) {
                     //This heap can satisfy all the requested capabilities. See if we can grab some memory using it.
-                    if ((caps & MALLOC_CAP_EXEC) && esp_ptr_in_diram_dram((void *)heap->start)) {
+                    if ((caps & MALLOC_CAP_EXEC) && heap->start >= SOC_DIRAM_DRAM_LOW && heap->start < SOC_DIRAM_DRAM_HIGH) {
                         //This is special, insofar that what we're going to get back is a DRAM address. If so,
                         //we need to 'invert' it (lowest address in DRAM == highest address in IRAM and vice-versa) and
                         //add a pointer to the DRAM equivalent before the address we're going to return.
-                        ret = multi_heap_malloc(heap->heap, size + 4);  // int overflow checked above
-
+                        ret = multi_heap_malloc(heap->heap, size + 4);
                         if (ret != NULL) {
-                            return dram_alloc_to_iram_addr(ret, size + 4);  // int overflow checked above
+                            return dram_alloc_to_iram_addr(ret, size + 4);
                         }
                     } else {
                         //Just try to alloc, nothing special.
@@ -122,6 +125,13 @@ IRAM_ATTR void *heap_caps_malloc( size_t size, uint32_t caps )
             }
         }
     }
+
+    if(!(caps & (MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA | MALLOC_CAP_EXEC)))
+    {
+        if(alloc_use_fund())
+            goto retry;
+    }
+
     //Nothing usable found.
     return NULL;
 }
@@ -256,11 +266,13 @@ IRAM_ATTR static heap_t *find_containing_heap(void *ptr )
 
 IRAM_ATTR void heap_caps_free( void *ptr)
 {
-    if (ptr == NULL) {
+    intptr_t p = (intptr_t)ptr;
+
+    if (ptr == NULL || ptr == gZeroPtr) {
         return;
     }
 
-    if (esp_ptr_in_diram_iram(ptr)) {
+    if ((p >= SOC_DIRAM_IRAM_LOW) && (p <= SOC_DIRAM_IRAM_HIGH)) {
         //Memory allocated here is actually allocated in the DRAM alias region and
         //cannot be de-allocated as usual. dram_alloc_to_iram_addr stores a pointer to
         //the equivalent DRAM address, though; free that.
@@ -275,47 +287,24 @@ IRAM_ATTR void heap_caps_free( void *ptr)
 
 IRAM_ATTR void *heap_caps_realloc( void *ptr, size_t size, int caps)
 {
-    bool ptr_in_diram_case = false;
-    heap_t *heap = NULL;
-    void *dram_ptr = NULL;
-    
-    if (ptr == NULL) {
+    if (ptr == NULL || ptr == gZeroPtr) {
         return heap_caps_malloc(size, caps);
     }
 
     if (size == 0) {
         heap_caps_free(ptr);
-        return NULL;
+        return gZeroPtr;
     }
 
-    if (size > HEAP_SIZE_MAX) {
-        return NULL;
-    }
+    heap_t *heap = find_containing_heap(ptr);
 
-    //The pointer to memory may be aliased, we need to 
-    //recover the corresponding address before to manage a new allocation:
-    if(esp_ptr_in_diram_iram((void *)ptr)) {
-        uint32_t *dram_addr = (uint32_t *)ptr;
-        dram_ptr  = (void *)dram_addr[-1];
-        
-        heap = find_containing_heap(dram_ptr);
-        assert(heap != NULL && "realloc() pointer is outside heap areas");
-        
-        //with pointers that reside on diram space, we avoid using 
-        //the realloc implementation due to address translation issues,
-        //instead force a malloc/copy/free
-        ptr_in_diram_case = true;
-    
-    } else {
-        heap = find_containing_heap(ptr);
-        assert(heap != NULL && "realloc() pointer is outside heap areas");
-    }
+    assert(heap != NULL && "realloc() pointer is outside heap areas");
 
     // are the existing heap's capabilities compatible with the
     // requested ones?
     bool compatible_caps = (caps & get_all_caps(heap)) == caps;
 
-    if (compatible_caps && !ptr_in_diram_case) {
+    if (compatible_caps) {
         // try to reallocate this memory within the same heap
         // (which will resize the block if it can)
         void *r = multi_heap_realloc(heap->heap, ptr, size);
@@ -324,30 +313,35 @@ IRAM_ATTR void *heap_caps_realloc( void *ptr, size_t size, int caps)
         }
     }
 
+    void *new_p;
+
+retry:
     // if we couldn't do that, try to see if we can reallocate
     // in a different heap with requested capabilities.
-    void *new_p = heap_caps_malloc(size, caps);
+    new_p = heap_caps_malloc(size, caps);
     if (new_p != NULL) {
-        size_t old_size = 0;
-
-        //If we're dealing with aliased ptr, information regarding its containing
-        //heap can only be obtained with translated address.
-        if(ptr_in_diram_case) {
-            old_size = multi_heap_get_allocated_size(heap->heap, dram_ptr);
-        } else {
-            old_size = multi_heap_get_allocated_size(heap->heap, ptr);
-        }
-
+        size_t old_size = multi_heap_get_allocated_size(heap->heap, ptr);
         assert(old_size > 0);
         memcpy(new_p, ptr, MIN(size, old_size));
         heap_caps_free(ptr);
         return new_p;
     }
+
+
+    if(!(caps & (MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA | MALLOC_CAP_EXEC)))
+    {
+        if(alloc_use_fund())
+            goto retry;
+    }
+
     return NULL;
 }
 
 IRAM_ATTR void *heap_caps_calloc( size_t n, size_t size, uint32_t caps)
 {
+    if(!n || !size)
+        return gZeroPtr;
+
     void *result;
     size_t size_bytes;
 
@@ -360,18 +354,6 @@ IRAM_ATTR void *heap_caps_calloc( size_t n, size_t size, uint32_t caps)
         bzero(result, size_bytes);
     }
     return result;
-}
-
-size_t heap_caps_get_total_size(uint32_t caps)
-{
-    size_t total_size = 0;
-    heap_t *heap;
-    SLIST_FOREACH(heap, &registered_heaps, next) {
-        if (heap_caps_match(heap, caps)) {
-            total_size += (heap->end - heap->start);
-        }
-    }
-    return total_size;
 }
 
 size_t heap_caps_get_free_size( uint32_t caps )
@@ -491,92 +473,7 @@ void heap_caps_dump(uint32_t caps)
     }
 }
 
-void heap_caps_dump_all(void)
+void heap_caps_dump_all()
 {
     heap_caps_dump(MALLOC_CAP_INVALID);
-}
-
-size_t heap_caps_get_allocated_size( void *ptr )
-{
-    heap_t *heap = find_containing_heap(ptr);
-    size_t size = multi_heap_get_allocated_size(heap->heap, ptr);
-    return size;
-}
-
-IRAM_ATTR void *heap_caps_aligned_alloc(size_t alignment, size_t size, int caps)
-{
-    void *ret = NULL;
-
-    if(!alignment) {
-        return NULL;
-    }
-
-    //Alignment must be a power of two:
-    if((alignment & (alignment - 1)) != 0) {
-        return NULL;
-    }
-
-    if (size > HEAP_SIZE_MAX) {
-        // Avoids int overflow when adding small numbers to size, or
-        // calculating 'end' from start+size, by limiting 'size' to the possible range
-        return NULL;
-    }
-
-    //aligned alloc for now only supports default allocator or external
-    //allocator.
-    if((caps & (MALLOC_CAP_DEFAULT | MALLOC_CAP_SPIRAM)) == 0) {
-        return NULL;
-    }
-
-    //if caps requested are supported, clear undesired others:
-    caps &= (MALLOC_CAP_DEFAULT | MALLOC_CAP_SPIRAM);
-
-    for (int prio = 0; prio < SOC_MEMORY_TYPE_NO_PRIOS; prio++) {
-        //Iterate over heaps and check capabilities at this priority
-        heap_t *heap;
-        SLIST_FOREACH(heap, &registered_heaps, next) {
-            if (heap->heap == NULL) {
-                continue;
-            }
-            if ((heap->caps[prio] & caps) != 0) {
-                //Heap has at least one of the caps requested. If caps has other bits set that this prio
-                //doesn't cover, see if they're available in other prios.
-                if ((get_all_caps(heap) & caps) == caps) {
-                    //Just try to alloc, nothing special.
-                    ret = multi_heap_aligned_alloc(heap->heap, size, alignment); 
-                    if (ret != NULL) {
-                        return ret;
-                    }
-                }
-            }
-        }
-    }
-    //Nothing usable found.
-    return NULL;
-}
-
-void *heap_caps_aligned_calloc(size_t alignment, size_t n, size_t size, uint32_t caps)
-{    
-    size_t size_bytes;
-    if (__builtin_mul_overflow(n, size, &size_bytes)) {
-        return NULL;
-    }
-
-    void *ptr = heap_caps_aligned_alloc(alignment,size_bytes, caps);
-    if(ptr != NULL) {
-        memset(ptr, 0, size_bytes);
-    }
-
-    return ptr;
-}
-
-IRAM_ATTR void heap_caps_aligned_free(void *ptr)
-{
-    if (ptr == NULL) {
-        return;
-    }
-
-    heap_t *heap = find_containing_heap(ptr);
-    assert(heap != NULL && "free() target pointer is outside heap areas");
-    multi_heap_aligned_free(heap->heap, ptr);
 }
