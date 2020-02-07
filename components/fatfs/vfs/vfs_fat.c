@@ -20,21 +20,10 @@
 #include <sys/fcntl.h>
 #include <sys/lock.h>
 #include "esp_vfs.h"
+#include "esp_vfs_fat.h"
 #include "esp_log.h"
 #include "ff.h"
 #include "diskio_impl.h"
-
-typedef struct {
-    char fat_drive[8];  /* FAT drive name */
-    char base_path[ESP_VFS_PATH_MAX];   /* base path in VFS where partition is registered */
-    size_t max_files;   /* max number of simultaneously open files; size of files[] array */
-    _lock_t lock;       /* guard for access to this structure */
-    FATFS fs;           /* fatfs library FS structure */
-    char tmp_path_buf[FILENAME_MAX+3];  /* temporary buffer used to prepend drive name to the path */
-    char tmp_path_buf2[FILENAME_MAX+3]; /* as above; used in functions which take two path arguments */
-    bool *o_append;  /* O_APPEND is stored here for each max_files entries (because O_APPEND is not compatible with FA_OPEN_APPEND) */
-    FIL files[0];   /* array with max_files entries; must be the final member of the structure */
-} vfs_fat_ctx_t;
 
 typedef struct {
     DIR dir;
@@ -114,7 +103,7 @@ static size_t find_unused_context_index(void)
     return FF_VOLUMES;
 }
 
-esp_err_t esp_vfs_fat_register(const char* base_path, const char* fat_drive, size_t max_files, FATFS** out_fs)
+esp_err_t esp_vfs_fat_register(const char* base_path, const char* fat_drive, size_t max_files, FATFS** out_fs, vfs_fat_ctx_t **out_fat_ctx)
 {
     size_t ctx = find_context_index_by_path(base_path);
     if (ctx < FF_VOLUMES) {
@@ -183,6 +172,7 @@ esp_err_t esp_vfs_fat_register(const char* base_path, const char* fat_drive, siz
     s_fat_ctx = fat_ctx;
 
     *out_fs = &fat_ctx->fs;
+    *out_fat_ctx = fat_ctx;
 
     return ESP_OK;
 }

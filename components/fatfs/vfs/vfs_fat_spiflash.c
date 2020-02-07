@@ -31,6 +31,9 @@ esp_err_t esp_vfs_fat_spiflash_mount(const char* base_path,
     const esp_vfs_fat_mount_config_t* mount_config,
     wl_handle_t* wl_handle)
 {
+    ESP_LOGE(TAG, "not changed version, use sdmmc");
+    return ESP_FAIL;
+/*
     esp_err_t result = ESP_OK;
     const size_t workbuf_size = 4096;
     void *workbuf = NULL;
@@ -113,6 +116,7 @@ fail:
     esp_vfs_fat_unregister_path(base_path);
     ff_diskio_unregister(pdrv);
     return result;
+*/
 }
 
 esp_err_t esp_vfs_fat_spiflash_unmount(const char *base_path, wl_handle_t wl_handle)
@@ -137,6 +141,9 @@ esp_err_t esp_vfs_fat_rawflash_mount(const char* base_path,
     const char* partition_label,
     const esp_vfs_fat_mount_config_t* mount_config)
 {
+    ESP_LOGE(TAG, "not changed version, use sdmmc");
+    return ESP_FAIL;
+/*
     esp_err_t result = ESP_OK;
 
     const esp_partition_t *data_partition = esp_partition_find_first(ESP_PARTITION_TYPE_DATA,
@@ -183,6 +190,7 @@ fail:
     esp_vfs_fat_unregister_path(base_path);
     ff_diskio_unregister(pdrv);
     return result;
+*/
 }
 
 

@@ -435,8 +435,8 @@ esp_eth_mac_t *esp_eth_mac_new_esp32(const eth_mac_config_t *config)
               "create pm lock failed", err, NULL);
 #endif
     /* create rx task */
-    BaseType_t xReturned = xTaskCreate(emac_esp32_rx_task, "emac_rx", config->rx_task_stack_size, emac,
-                                       config->rx_task_prio, &emac->rx_task_hdl);
+    BaseType_t xReturned = xTaskCreatePinnedToCore(emac_esp32_rx_task, "emac_rx", config->rx_task_stack_size, emac,
+                                       config->rx_task_prio, &emac->rx_task_hdl, 0);
     MAC_CHECK(xReturned == pdPASS, "create emac_rx task failed", err, NULL);
     return &(emac->parent);
 

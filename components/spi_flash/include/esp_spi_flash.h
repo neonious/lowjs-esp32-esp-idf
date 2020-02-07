@@ -210,6 +210,9 @@ typedef uint32_t spi_flash_mmap_handle_t;
 esp_err_t spi_flash_mmap(size_t src_addr, size_t size, spi_flash_mmap_memory_t memory,
                          const void** out_ptr, spi_flash_mmap_handle_t* out_handle);
 
+esp_err_t spi_flash_mmap_to(size_t src_addr, size_t size,
+                         const void* out_ptr, spi_flash_mmap_handle_t* out_handle);
+
 /**
  * @brief Map sequences of pages of flash memory into data or instruction address space
  *

@@ -211,10 +211,6 @@ static esp_err_t image_load(esp_image_load_mode_t mode, const esp_partition_pos_
 #endif
 
         if (verify_sha) {
-            if (data->image_len > part->size) {
-                FAIL_LOAD("Image length %d doesn't fit in partition length %d", data->image_len, part->size);
-            }
-
 #ifdef SECURE_BOOT_CHECK_SIGNATURE
             // secure boot images have a signature appended
             err = verify_secure_boot_signature(sha_handle, data);

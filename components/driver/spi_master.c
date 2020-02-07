@@ -707,6 +707,8 @@ static void SPI_MASTER_ISR_ATTR spi_post_trans(spi_host_t *host)
     host->cur_cs = NO_CS;
 }
 
+void user_spi_interrupt_done(spi_host_device_t index);
+
 // This is run in interrupt context.
 static void SPI_MASTER_ISR_ATTR spi_intr(void *arg)
 {
@@ -733,7 +735,11 @@ static void SPI_MASTER_ISR_ATTR spi_intr(void *arg)
 #ifdef CONFIG_PM_ENABLE
         //Release APB frequency lock
         esp_pm_lock_release(host->pm_lock);
-#endif
+#endif 
+        if(spihost[HSPI_HOST] == host)
+            user_spi_interrupt_done(HSPI_HOST);
+        if(spihost[VSPI_HOST] == host)
+            user_spi_interrupt_done(VSPI_HOST);
     }
 
     /*------------ new transaction starts here ------------------*/

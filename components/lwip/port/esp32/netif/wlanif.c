@@ -215,17 +215,6 @@ wlanif_init(struct netif *netif)
 {
   LWIP_ASSERT("netif != NULL", (netif != NULL));
 
-#if LWIP_NETIF_HOSTNAME
-  /* Initialize interface hostname */
-
-#if ESP_LWIP
-  netif->hostname = CONFIG_LWIP_LOCAL_HOSTNAME;
-#else
-  netif->hostname = "lwip";
-#endif
-
-#endif /* LWIP_NETIF_HOSTNAME */
-
   /*
    * Initialize the snmp variables and counters inside the struct netif.
    * The last argument should be replaced with your link speed, in units

@@ -685,13 +685,17 @@ void esp_netif_free_rx_buffer(void *h, void* buffer)
     esp_netif->driver_free_rx_buffer(esp_netif->driver_handle, buffer);
 }
 
+extern uint32_t gNetworkBytes;
+
 esp_err_t esp_netif_transmit(esp_netif_t *esp_netif, void* data, size_t len)
 {
+    gNetworkBytes += len;
     return (esp_netif->driver_transmit)(esp_netif->driver_handle, data, len);
 }
 
 esp_err_t esp_netif_receive(esp_netif_t *esp_netif, void *buffer, size_t len, void *eb)
 {
+    gNetworkBytes += len;
     esp_netif->lwip_input_fn(esp_netif->netif_handle, buffer, len, eb);
     return ESP_OK;
 }
@@ -994,11 +998,11 @@ static esp_err_t esp_netif_set_hostname_api(esp_netif_api_msg_t *msg)
     }
 
 #if LWIP_NETIF_HOSTNAME
-
     struct netif *p_netif = esp_netif->lwip_netif;
     if (esp_netif->hostname) {
         free(esp_netif->hostname);
     }
+
     esp_netif->hostname = strdup(hostname);
     if (esp_netif->hostname == NULL) {
         return ESP_ERR_NO_MEM;
@@ -1183,11 +1187,15 @@ static esp_err_t esp_netif_set_ip_info_api(esp_netif_api_msg_t *msg)
         return ESP_ERR_INVALID_STATE;
     }
 
+/*
+    // Why? Breaks low.js code
     if (esp_netif->flags & ESP_NETIF_DHCP_SERVER) {
         if (esp_netif->dhcps_status != ESP_NETIF_DHCP_STOPPED) {
             return ESP_ERR_ESP_NETIF_DHCP_NOT_STOPPED;
             }
-    } else if (esp_netif->flags & ESP_NETIF_DHCP_CLIENT) {
+    } else 
+*/
+    if (esp_netif->flags & ESP_NETIF_DHCP_CLIENT) {
         if (esp_netif->dhcpc_status != ESP_NETIF_DHCP_STOPPED) {
             return ESP_ERR_ESP_NETIF_DHCP_NOT_STOPPED;
         }

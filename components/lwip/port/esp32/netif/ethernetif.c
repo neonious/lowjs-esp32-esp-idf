@@ -197,15 +197,6 @@ err_t ethernetif_init(struct netif *netif)
     LWIP_ASSERT("netif != NULL", (netif != NULL));
     /* Have to get the esp-netif handle from netif first and then driver==ethernet handle from there */
     esp_eth_handle_t eth_handle = esp_netif_get_io_driver(esp_netif_get_handle_from_netif_impl(netif));
-    /* Initialize interface hostname */
-#if LWIP_NETIF_HOSTNAME
-#if ESP_LWIP
-    netif->hostname = CONFIG_LWIP_LOCAL_HOSTNAME;
-#else
-    netif->hostname = "lwip";
-#endif
-
-#endif /* LWIP_NETIF_HOSTNAME */
 
     /* Initialize the snmp variables and counters inside the struct netif. */
     eth_speed_t speed;

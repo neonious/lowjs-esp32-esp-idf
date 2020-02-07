@@ -20,10 +20,23 @@
 #include "driver/sdspi_host.h"
 #include "ff.h"
 #include "wear_levelling.h"
+#include "esp_vfs.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+typedef struct {
+    char fat_drive[8];  /* FAT drive name */
+    char base_path[ESP_VFS_PATH_MAX];   /* base path in VFS where partition is registered */
+    size_t max_files;   /* max number of simultaneously open files; size of files[] array */
+    _lock_t lock;       /* guard for access to this structure */
+    FATFS fs;           /* fatfs library FS structure */
+    char tmp_path_buf[FILENAME_MAX+3];  /* temporary buffer used to prepend drive name to the path */
+    char tmp_path_buf2[FILENAME_MAX+3]; /* as above; used in functions which take two path arguments */
+    bool *o_append;  /* O_APPEND is stored here for each max_files entries (because O_APPEND is not compatible with FA_OPEN_APPEND) */
+    FIL files[0];   /* array with max_files entries; must be the final member of the structure */
+} vfs_fat_ctx_t;
 
 /**
  * @brief Register FATFS with VFS component
@@ -48,7 +61,7 @@ extern "C" {
  *      - ESP_ERR_NO_MEM if not enough memory or too many VFSes already registered
  */
 esp_err_t esp_vfs_fat_register(const char* base_path, const char* fat_drive,
-        size_t max_files, FATFS** out_fs);
+        size_t max_files, FATFS** out_fs, vfs_fat_ctx_t **out_fat_ctx);
 
 /**
  * @brief Un-register FATFS from VFS
@@ -136,7 +149,8 @@ esp_err_t esp_vfs_fat_sdmmc_mount(const char* base_path,
     const sdmmc_host_t* host_config,
     const void* slot_config,
     const esp_vfs_fat_mount_config_t* mount_config,
-    sdmmc_card_t** out_card);
+    sdmmc_card_t** out_card,
+    unsigned char format);
 
 /**
  * @brief Unmount FAT filesystem and release resources acquired using esp_vfs_fat_sdmmc_mount
@@ -230,6 +244,7 @@ esp_err_t esp_vfs_fat_rawflash_mount(const char* base_path,
  */
  esp_err_t esp_vfs_fat_rawflash_unmount(const char* base_path, const char* partition_label);
 
+esp_err_t esp_vfs_disk_space(double *used, double *total);
 
 #ifdef __cplusplus
 }

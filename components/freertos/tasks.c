@@ -5136,3 +5136,16 @@ TickType_t uxReturn;
 	#include "tasks_test_access_functions.h"
 #endif
 
+int neoniousGetStackFree()
+{
+    unsigned char a = 0;
+    TCB_t *pxTCB = prvGetTCBFromHandle(NULL);
+    int stackLeft = &a - (( uint8_t * ) pxTCB->pxStack);
+    return stackLeft;
+}
+
+void *neoniousGetStack()
+{
+    TCB_t *pxTCB = prvGetTCBFromHandle(NULL);
+    return pxTCB->pxStack;
+}

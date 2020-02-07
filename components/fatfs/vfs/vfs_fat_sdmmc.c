@@ -23,17 +23,22 @@
 #include "sdmmc_cmd.h"
 #include "diskio_impl.h"
 #include "diskio_sdmmc.h"
+#include "pthread.h"
 
 static const char* TAG = "vfs_fat_sdmmc";
 static sdmmc_card_t* s_card = NULL;
 static uint8_t s_pdrv = 0;
 static char * s_base_path = NULL;
 
+static vfs_fat_ctx_t *fat_ctx;
+static pthread_mutex_t unregister_lock = PTHREAD_MUTEX_INITIALIZER;
+
 esp_err_t esp_vfs_fat_sdmmc_mount(const char* base_path,
     const sdmmc_host_t* host_config,
     const void* slot_config,
     const esp_vfs_fat_mount_config_t* mount_config,
-    sdmmc_card_t** out_card)
+    sdmmc_card_t** out_card,
+    unsigned char format)
 {
     const size_t workbuf_size = 4096;
     void* workbuf = NULL;
@@ -98,20 +103,24 @@ esp_err_t esp_vfs_fat_sdmmc_mount(const char* base_path,
     char drv[3] = {(char)('0' + pdrv), ':', 0};
 
     // connect FATFS to VFS
-    err = esp_vfs_fat_register(base_path, drv, mount_config->max_files, &fs);
+    vfs_fat_ctx_t *fat_ctx_;
+    err = esp_vfs_fat_register(base_path, drv, mount_config->max_files, &fs, &fat_ctx_);
     if (err == ESP_ERR_INVALID_STATE) {
         // it's okay, already registered with VFS
     } else if (err != ESP_OK) {
         ESP_LOGD(TAG, "esp_vfs_fat_register failed 0x(%x)", err);
         goto fail;
     }
+    
 
     // Try to mount partition
-    FRESULT res = f_mount(fs, drv, 1);
-    if (res != FR_OK) {
+    FRESULT res = 0;
+    if(!format)
+        res = f_mount(fs, drv, 1);
+    if (format || res != FR_OK) {
         err = ESP_FAIL;
         ESP_LOGW(TAG, "failed to mount card (%d)", res);
-        if (!((res == FR_NO_FILESYSTEM || res == FR_INT_ERR)
+        if (!format && !((res == FR_NO_FILESYSTEM || res == FR_INT_ERR)
               && mount_config->format_if_mount_failed)) {
             goto fail;
         }
@@ -147,10 +156,15 @@ esp_err_t esp_vfs_fat_sdmmc_mount(const char* base_path,
             ESP_LOGD(TAG, "f_mount failed after formatting (%d)", res);
             goto fail;
         }
+
+        fat_ctx = fat_ctx_;
     }
     return ESP_OK;
 
 fail:
+    pthread_mutex_lock(&unregister_lock);
+    fat_ctx = NULL;
+    pthread_mutex_unlock(&unregister_lock);
     host_config->deinit();
     free(workbuf);
     if (fs) {
@@ -167,6 +181,9 @@ fail:
 
 esp_err_t esp_vfs_fat_sdmmc_unmount(void)
 {
+    pthread_mutex_lock(&unregister_lock);
+    fat_ctx = NULL;
+    pthread_mutex_unlock(&unregister_lock);
     if (s_card == NULL) {
         return ESP_ERR_INVALID_STATE;
     }
@@ -183,4 +200,37 @@ esp_err_t esp_vfs_fat_sdmmc_unmount(void)
     free(s_base_path);
     s_base_path = NULL;
     return err;
+}
+
+
+esp_err_t esp_vfs_disk_space(double *used, double *total)
+{
+    pthread_mutex_lock(&unregister_lock);
+    if(!fat_ctx)
+    {
+        pthread_mutex_unlock(&unregister_lock);
+        return ESP_FAIL;
+    }
+
+    _lock_acquire(&fat_ctx->lock);
+
+    FATFS *fs;
+    DWORD fre_clust, fre_sect, tot_sect;
+    /* Get volume information and free clusters of drive 0 */
+    if(f_getfree(fat_ctx->fat_drive, &fre_clust, &fs) != FR_OK)
+    {
+        _lock_release(&fat_ctx->lock);
+        pthread_mutex_unlock(&unregister_lock);
+        return ESP_FAIL;
+    }
+    /* Get total sectors and free sectors */
+    tot_sect = (fs->n_fatent - 2) * fs->csize;
+    fre_sect = fre_clust * fs->csize;
+
+    *used = (tot_sect - fre_sect) * 512.0;
+    *total = tot_sect * 512.0;
+
+    _lock_release(&fat_ctx->lock);
+    pthread_mutex_unlock(&unregister_lock);
+    return ESP_OK;
 }

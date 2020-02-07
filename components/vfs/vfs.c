@@ -280,6 +280,14 @@ static inline int get_local_fd(const vfs_entry_t *vfs, int fd)
     return local_fd;
 }
 
+int esp_vfs_fd_to_local(int fd)
+{
+    const vfs_entry_t *entry = get_vfs_for_fd(fd);
+    if (!entry)
+        return -1;
+    return get_local_fd(entry, fd);
+}
+
 static const char* translate_path(const vfs_entry_t* vfs, const char* src_path)
 {
     assert(strncmp(src_path, vfs->path_prefix, vfs->path_prefix_len) == 0);
@@ -383,8 +391,12 @@ int esp_vfs_open(struct _reent *r, const char * path, int flags, int mode)
         __errno_r(r) = ENOENT;
         return -1;
     }
-    const char *path_within_vfs = translate_path(vfs, path);
+
+    const char *path_within_vfs;
     int fd_within_vfs;
+
+retry:
+    path_within_vfs = translate_path(vfs, path);
     CHECK_AND_CALL(fd_within_vfs, r, vfs, open, path_within_vfs, flags, mode);
     if (fd_within_vfs >= 0) {
         _lock_acquire(&s_fd_table_lock);
@@ -404,6 +416,16 @@ int esp_vfs_open(struct _reent *r, const char * path, int flags, int mode)
         __errno_r(r) = ENOMEM;
         return -1;
     }
+
+    // Static files
+    if(vfs->path_prefix_len && memcmp(path, "/fs/", 4) == 0)
+        for (size_t i = 0; i < s_vfs_count; ++i)
+        {
+            vfs = s_vfs[i];
+            if(!vfs->path_prefix_len)
+                goto retry;
+        }
+
     __errno_r(r) = ENOENT;
     return -1;
 }
@@ -514,9 +536,25 @@ int esp_vfs_stat(struct _reent *r, const char * path, struct stat * st)
         __errno_r(r) = ENOENT;
         return -1;
     }
-    const char* path_within_vfs = translate_path(vfs, path);
     int ret;
+    const char *path_within_vfs;
+
+retry:
+    path_within_vfs = translate_path(vfs, path);
     CHECK_AND_CALL(ret, r, vfs, stat, path_within_vfs, st);
+
+    if(ret < 0 && __errno_r(r) == ENOENT)
+    {
+        // Static files
+        if(vfs->path_prefix_len && memcmp(path, "/fs/", 4) == 0)
+            for (size_t i = 0; i < s_vfs_count; ++i)
+            {
+                vfs = s_vfs[i];
+                if(!vfs->path_prefix_len)
+                    goto retry;
+            }
+    }
+
     return ret;
 }
 
@@ -1268,3 +1306,13 @@ void vfs_include_syscalls_impl(void)
 {
     // Linker hook function, exists to make the linker examine this fine
 }
+
+int stat_get_num_fds()
+{
+    int count = 0;
+    for(int i = 0; i < MAX_FDS; i++)
+        if (s_fd_table[i].vfs_index != -1)
+            count++;
+    return count;
+}
+ 
