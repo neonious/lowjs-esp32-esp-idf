@@ -869,7 +869,7 @@ static SPI_MASTER_ISR_ATTR esp_err_t setup_priv_desc(spi_transaction_t *trans_de
     }
     if (rcv_ptr && isdma && (!esp_ptr_dma_capable(rcv_ptr) || ((int)rcv_ptr % 4 != 0))) {
         //if rxbuf in the desc not DMA-capable, malloc a new one. The rx buffer need to be length of multiples of 32 bits to avoid heap corruption.
-        ESP_LOGI( SPI_TAG, "Allocate RX buffer for DMA" );
+//        ESP_LOGI( SPI_TAG, "Allocate RX buffer for DMA" );
         rcv_ptr = heap_caps_malloc((trans_desc->rxlength + 31) / 8, MALLOC_CAP_DMA);
         if (rcv_ptr == NULL) goto clean_up;
     }
@@ -885,7 +885,7 @@ static SPI_MASTER_ISR_ATTR esp_err_t setup_priv_desc(spi_transaction_t *trans_de
     }
     if (send_ptr && isdma && !esp_ptr_dma_capable( send_ptr )) {
         //if txbuf in the desc not DMA-capable, malloc a new one
-        ESP_LOGD( SPI_TAG, "Allocate TX buffer for DMA" );
+//        ESP_LOGD( SPI_TAG, "Allocate TX buffer for DMA" );
         uint32_t *temp = heap_caps_malloc((trans_desc->length + 7) / 8, MALLOC_CAP_DMA);
         if (temp == NULL) goto clean_up;
 

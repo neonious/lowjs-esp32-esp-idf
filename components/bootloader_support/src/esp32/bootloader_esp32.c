@@ -310,11 +310,15 @@ static void bootloader_init_uart_console(void)
         const uint32_t tx_idx = tx_idx_list[uart_num];
         const uint32_t rx_idx = rx_idx_list[uart_num];
 
-        PIN_INPUT_ENABLE(GPIO_PIN_MUX_REG[uart_rx_gpio]);
-        gpio_pad_pullup(uart_rx_gpio);
-
-        gpio_matrix_out(uart_tx_gpio, tx_idx, 0, 0);
-        gpio_matrix_in(uart_rx_gpio, rx_idx, 0);
+	if(uart_rx_gpio >= 0)
+	{
+	        PIN_INPUT_ENABLE(GPIO_PIN_MUX_REG[uart_rx_gpio]);
+        	gpio_pad_pullup(uart_rx_gpio);
+	}
+	if(uart_tx_gpio >= 0)
+	        gpio_matrix_out(uart_tx_gpio, tx_idx, 0, 0);
+	if(uart_rx_gpio >= 0)
+	        gpio_matrix_in(uart_rx_gpio, rx_idx, 0);
 
         DPORT_SET_PERI_REG_MASK(DPORT_PERIP_RST_EN_REG, uart_reset[uart_num]);
         DPORT_CLEAR_PERI_REG_MASK(DPORT_PERIP_RST_EN_REG, uart_reset[uart_num]);

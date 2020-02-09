@@ -128,13 +128,13 @@ menu "Common ESP-related"
     config ESP_CONSOLE_UART_TX_GPIO
         int "UART TX on GPIO#"
         depends on ESP_CONSOLE_UART_CUSTOM
-        range 0 33
+        range -1 33
         default 19
 
     config ESP_CONSOLE_UART_RX_GPIO
         int "UART RX on GPIO#"
         depends on ESP_CONSOLE_UART_CUSTOM
-        range 0 39
+        range -1 39
         default 21
 
     config ESP_CONSOLE_UART_BAUDRATE
