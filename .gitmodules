@@ -45,7 +45,7 @@
 
 [submodule "components/lwip/lwip"]
 	path = components/lwip/lwip
-	url = https://www.github.com/espressif/esp-lwip.git
+	url = https://neonious.com:444/thomas/neon2-lwip
 
 [submodule "components/mqtt/esp-mqtt"]
 	path = components/mqtt/esp-mqtt
