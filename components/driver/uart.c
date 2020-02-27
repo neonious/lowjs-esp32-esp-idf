@@ -157,13 +157,13 @@ static portMUX_TYPE uart_selectlock = portMUX_INITIALIZER_UNLOCKED;
 static void uart_module_enable(uart_port_t uart_num)
 {
     UART_ENTER_CRITICAL(&(uart_context[uart_num].spinlock));
-    if (uart_context[uart_num].hw_enabled != true) {
+//    if (uart_context[uart_num].hw_enabled != true) {		// we are not using uart_module_disable!
         if (uart_num != CONFIG_ESP_CONSOLE_UART_NUM) {
             periph_module_reset(uart_periph_signal[uart_num].module);
         }
         periph_module_enable(uart_periph_signal[uart_num].module);
         uart_context[uart_num].hw_enabled = true;
-    }
+//    }
     UART_EXIT_CRITICAL(&(uart_context[uart_num].spinlock));
 }
 
