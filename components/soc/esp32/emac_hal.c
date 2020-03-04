@@ -20,7 +20,8 @@
 
 #define ETH_CRC_LENGTH (4)
 
-#if CONFIG_ETH_RMII_CLK_OUTPUT
+unsigned char gEthernetPinCLKMode;
+
 static void emac_config_apll_clock(void)
 {
     /* apll_freq = xtal_freq * (4 + sdm2 + sdm1/256 + sdm0/65536)/((o_div + 2) * 2) */
@@ -46,7 +47,6 @@ static void emac_config_apll_clock(void)
         break;
     }
 }
-#endif
 
 void emac_hal_init(emac_hal_context_t *hal, void *descriptors,
                    uint8_t **rx_buf, uint8_t **tx_buf)
@@ -80,30 +80,18 @@ void emac_hal_lowlevel_init(emac_hal_context_t *hal)
     /* CRS_DV to GPIO27 */
     PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO27_U, FUNC_GPIO27_EMAC_RX_DV);
     PIN_INPUT_ENABLE(GPIO_PIN_MUX_REG[27]);
-#if CONFIG_ETH_RMII_CLK_INPUT
-#if CONFIG_ETH_RMII_CLK_IN_GPIO == 0
-    /* RMII clock (50MHz) input to GPIO0 */
-    PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO0_U, FUNC_GPIO0_EMAC_TX_CLK);
-    PIN_INPUT_ENABLE(GPIO_PIN_MUX_REG[0]);
-#else
-#error "ESP32 EMAC only support input RMII clock to GPIO0"
-#endif
-#endif
-#if CONFIG_ETH_RMII_CLK_OUTPUT
-#if CONFIG_ETH_RMII_CLK_OUTPUT_GPIO0
-    /* APLL clock output to GPIO0 (must be configured to 50MHz!) */
-    PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO0_U, FUNC_GPIO0_CLK_OUT1);
-    PIN_INPUT_DISABLE(GPIO_PIN_MUX_REG[0]);
-#elif CONFIG_ETH_RMII_CLK_OUT_GPIO == 16
-    /* RMII CLK (50MHz) output to GPIO16 */
-    PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO16_U, FUNC_GPIO16_EMAC_CLK_OUT);
-    PIN_INPUT_DISABLE(GPIO_PIN_MUX_REG[16]);
-#elif CONFIG_ETH_RMII_CLK_OUT_GPIO == 17
-    /* RMII CLK (50MHz) output to GPIO17 */
-    PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO17_U, FUNC_GPIO17_EMAC_CLK_OUT_180);
-    PIN_INPUT_DISABLE(GPIO_PIN_MUX_REG[17]);
-#endif
-#endif // CONFIG_ETH_RMII_CLK_OUTPUT
+    if(gEthernetPinCLKMode == 0)
+    {
+        /* RMII clock (50MHz) input to GPIO0 */
+        PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO0_U, FUNC_GPIO0_EMAC_TX_CLK);
+        PIN_INPUT_ENABLE(GPIO_PIN_MUX_REG[0]);
+    }
+    if(gEthernetPinCLKMode == 1)
+    {
+        /* APLL clock output to GPIO0 (must be configured to 50MHz!) */
+        PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO0_U, FUNC_GPIO0_CLK_OUT1);
+        PIN_INPUT_DISABLE(GPIO_PIN_MUX_REG[0]);
+    }
     /* Clock configuration */
 #if CONFIG_ETH_PHY_INTERFACE_MII
     hal->ext_regs->ex_phyinf_conf.phy_intf_sel = 0;
@@ -111,22 +99,23 @@ void emac_hal_lowlevel_init(emac_hal_context_t *hal)
     hal->ext_regs->ex_clk_ctrl.mii_clk_tx_en = 1;
 #elif CONFIG_ETH_PHY_INTERFACE_RMII
     hal->ext_regs->ex_phyinf_conf.phy_intf_sel = 4;
-#if CONFIG_ETH_RMII_CLK_INPUT
-    hal->ext_regs->ex_clk_ctrl.ext_en = 1;
-    hal->ext_regs->ex_clk_ctrl.int_en = 0;
-    hal->ext_regs->ex_oscclk_conf.clk_sel = 1;
-#elif CONFIG_ETH_RMII_CLK_OUTPUT
-    hal->ext_regs->ex_clk_ctrl.ext_en = 0;
-    hal->ext_regs->ex_clk_ctrl.int_en = 1;
-    hal->ext_regs->ex_oscclk_conf.clk_sel = 0;
-    emac_config_apll_clock();
-    hal->ext_regs->ex_clkout_conf.div_num = 0;
-    hal->ext_regs->ex_clkout_conf.h_div_num = 0;
-#if CONFIG_ETH_RMII_CLK_OUTPUT_GPIO0
-    /* Choose the APLL clock to output on GPIO */
-    REG_WRITE(PIN_CTRL, 6);
-#endif // CONFIG_RMII_CLK_OUTPUT_GPIO0
-#endif // CONFIG_ETH_RMII_CLK_INPUT
+    if(gEthernetPinCLKMode == 0)
+    {
+        hal->ext_regs->ex_clk_ctrl.ext_en = 1;
+        hal->ext_regs->ex_clk_ctrl.int_en = 0;
+        hal->ext_regs->ex_oscclk_conf.clk_sel = 1;
+    }
+    else
+    {
+        hal->ext_regs->ex_clk_ctrl.ext_en = 0;
+        hal->ext_regs->ex_clk_ctrl.int_en = 1;
+        hal->ext_regs->ex_oscclk_conf.clk_sel = 0;
+        emac_config_apll_clock();
+        hal->ext_regs->ex_clkout_conf.div_num = 0;
+        hal->ext_regs->ex_clkout_conf.h_div_num = 0;
+        /* Choose the APLL clock to output on GPIO */
+        REG_WRITE(PIN_CTRL, 6);
+    }
 #endif // CONFIG_ETH_PHY_INTERFACE_MII
 }
 
