@@ -120,6 +120,7 @@ typedef struct {
     int if_index;                    /*!< Interface index for which the event is received (left for legacy compilation) */
     esp_netif_t *esp_netif;          /*!< Pointer to corresponding esp-netif object */
     esp_netif_ip6_info_t ip6_info;   /*!< IPv6 address of the interface */
+    int ip_index;                    /*!< IPv6 address index */
 } ip_event_got_ip6_t;
 
 /** Event structure for IP_EVENT_AP_STAIPASSIGNED event */
@@ -155,7 +156,7 @@ typedef enum esp_netif_ip_event_type {
 typedef struct esp_netif_inherent_config {
     esp_netif_flags_t flags;         /*!< flags that define esp-netif behavior */
     uint8_t mac[6];                  /*!< initial mac address for this interface */
-    esp_netif_ip_info_t* ip_info;    /*!< initial ip address for this interface */
+    const esp_netif_ip_info_t* ip_info;    /*!< initial ip address for this interface */
     uint32_t get_ip_event;           /*!< event id to be raised when interface gets an IP */
     uint32_t lost_ip_event;          /*!< event id to be raised when interface losts its IP */
     const char * if_key;             /*!< string identifier of the interface */

@@ -11,35 +11,32 @@ if(BOOTLOADER_BUILD)
 else()
     # Regular app build
 
-    set(srcs "brownout.c"
-             "cache_err_int.c"
+    set(srcs "cache_err_int.c"
              "clk.c"
              "cpu_start.c"
              "crosscore_int.c"
              "dport_access.c"
-             "dport_panic_highint_hdl.S"
-             "esp_timer_esp32s2.c"
              "hw_random.c"
-             "int_wdt.c"
              "intr_alloc.c"
-             "panic.c"
              "pm_esp32s2.c"
              "pm_trace.c"
-             "reset_reason.c"
              "sleep_modes.c"
              "spiram.c"
              "spiram_psram.c"
              "system_api_esp32s2.c"
-             "task_wdt.c")
+             "esp_crypto_lock.c"
+             "esp_hmac.c")
+
     set(include_dirs "include")
 
     set(requires driver efuse soc) #unfortunately rom/uart uses SOC registers directly
 
     # driver is a public requirement because esp_sleep.h uses gpio_num_t & touch_pad_t
     # app_update is added here because cpu_start.c uses esp_ota_get_app_description() function.
+    # esp_timer is added here because cpu_start.c uses esp_timer
     set(priv_requires
         app_trace app_update bootloader_support log mbedtls nvs_flash
-        pthread spi_flash vfs espcoredump esp_common)
+        pthread spi_flash vfs espcoredump esp_common esp_timer)
 
     set(fragments linker.lf ld/esp32s2_fragments.lf)
 
@@ -68,7 +65,7 @@ else()
     #symbols in it.
     target_link_libraries(${COMPONENT_LIB} INTERFACE "-u ld_include_panic_highint_hdl")
 
-    idf_build_get_property(config_dir CONFIG_DIR)    
+    idf_build_get_property(config_dir CONFIG_DIR)
     # Preprocess esp32s2.ld linker script to include configuration, becomes esp32s2_out.ld
     set(LD_DIR ${CMAKE_CURRENT_SOURCE_DIR}/ld)
     add_custom_command(

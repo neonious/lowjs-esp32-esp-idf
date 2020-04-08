@@ -204,7 +204,7 @@ menu "FreeRTOS"
 
     config FREERTOS_SUPPORT_STATIC_ALLOCATION
         bool "Enable FreeRTOS static allocation API"
-        default n
+        default y
         help
             FreeRTOS gives the application writer the ability to instead provide the memory
             themselves, allowing the following objects to optionally be created without any
@@ -419,5 +419,13 @@ menu "FreeRTOS"
         bool
         help
             Hidden option, gets selected by CONFIG_ESPxx_DEBUG_OCDAWARE
+
+    config FREERTOS_FPU_IN_ISR
+        bool "Allow use of float inside Level 1 ISR (EXPERIMENTAL)"
+        depends on IDF_TARGET_ESP32
+        default n
+        help
+            When enabled, the usage of float type is allowed inside Level 1
+            ISRs.
 
 endmenu

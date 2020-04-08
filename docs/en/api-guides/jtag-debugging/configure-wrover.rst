@@ -8,7 +8,7 @@ All versions of ESP-WROVER-KIT boards have built-in JTAG functionality. Putting 
 Configure Hardware
 ^^^^^^^^^^^^^^^^^^
 
-1.  Enable on-board JTAG functionality by setting JP8 according to :doc:`../../hw-reference/get-started-wrover-kit`, Section :ref:`get-started-esp-wrover-kit-v4.1-setup-options`. 
+1.  Enable on-board JTAG functionality by setting JP8 according to :doc:`../../hw-reference/esp32/get-started-wrover-kit`, Section :ref:`get-started-esp-wrover-kit-v4.1-setup-options`.
 
 2.  Verify if ESP32 pins used for JTAG communication are not connected to some other h/w that may disturb JTAG operation:
 
@@ -40,9 +40,9 @@ Windows
 
 1.  Using standard USB A / micro USB B cable connect ESP-WROVER-KIT to the computer. Switch the WROVER KIT on.
 
-2.  Wait until USB ports of WROVER KIT are recognized by Windows and drives are installed. If they do not install automatically, then download them from http://www.ftdichip.com/Drivers/D2XX.htm and install manually.
+2.  Wait until USB ports of WROVER KIT are recognized by Windows and drives are installed. If they do not install automatically, then download them from https://www.ftdichip.com/Drivers/D2XX.htm and install manually.
 
-3.  Download Zadig tool (Zadig_X.X.exe) from http://zadig.akeo.ie/ and run it.
+3.  Download Zadig tool (Zadig_X.X.exe) from https://zadig.akeo.ie/ and run it.
 
 4.  In Zadig tool go to "Options" and check "List All Devices".
 
@@ -104,12 +104,12 @@ On macOS, using FT2232 for JTAG and serial port at the same time needs some addi
 
 1. Manually unload the FTDI serial port driver before starting OpenOCD, start OpenOCD, then load the serial port driver.
 
-2. Modify FTDI driver configuration so that it doesn't load itself for channel B of FT2232 chip, which is the channel used for JTAG on WROVER KIT. 
+2. Modify FTDI driver configuration so that it doesn't load itself for channel B of FT2232 chip, which is the channel used for JTAG on WROVER KIT.
 
 Manually unloading the driver
 .............................
 
-1. Install FTDI driver from http://www.ftdichip.com/Drivers/VCP.htm
+1. Install FTDI driver from https://www.ftdichip.com/Drivers/VCP.htm
 
 2. Connect USB cable to the WROVER KIT.
 

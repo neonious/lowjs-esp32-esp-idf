@@ -12,14 +12,21 @@
   extends: .build_template
   artifacts:
     paths:
-      - tools/unit-test-app/output
       - components/idf_test/unit_test/TestCaseAll.yml
+      # Keep only significant files in the output folder (mainly to get rid of .map files)
+      - tools/unit-test-app/output/*/*.bin
+      - tools/unit-test-app/output/*/sdkconfig
+      - tools/unit-test-app/output/*/*.elf
+      - tools/unit-test-app/output/*/flasher_args.json
+      - tools/unit-test-app/output/*/bootloader/*.bin
+      - tools/unit-test-app/output/*/partition_table/*.bin
     expire_in: 4 days
   only:
     variables:
       - $BOT_TRIGGER_WITH_LABEL == null
       - $BOT_LABEL_BUILD
       - $BOT_LABEL_UNIT_TEST
+      - $BOT_LABEL_UNIT_TEST_S2
       - $BOT_LABEL_REGULAR_TEST
 
 .build_ssc_template:
@@ -184,27 +191,61 @@ build_examples_cmake_esp32s2:
   variables:
     IDF_TARGET: esp32s2
 
+.build_test_apps: &build_test_apps
+  extends: .build_template
+  stage: build
+  artifacts:
+    when: always
+    paths:
+      - build_test_apps/list.json
+      - build_test_apps/list_job_*.json
+      - build_test_apps/*/*/*/build/*.bin
+      - build_test_apps/*/*/*/sdkconfig
+      - build_test_apps/*/*/*/build/*.elf
+      - build_test_apps/*/*/*/build/*.map
+      - build_test_apps/*/*/*/build/flasher_args.json
+      - build_test_apps/*/*/*/build/bootloader/*.bin
+      - build_test_apps/*/*/*/build/partition_table/*.bin
+      - $LOG_PATH
+    expire_in: 3 days
+  variables:
+    LOG_PATH: "$CI_PROJECT_DIR/log_test_apps"
+    BUILD_PATH: "$CI_PROJECT_DIR/build_test_apps"
+  only:
+    variables:
+      - $BOT_TRIGGER_WITH_LABEL == null
+      - $BOT_LABEL_BUILD
+      - $BOT_LABEL_INTEGRATION_TEST
+      - $BOT_LABEL_REGULAR_TEST
+      - $BOT_LABEL_WEEKEND_TEST
+  script:
+    - mkdir -p ${BUILD_PATH}
+    - mkdir -p ${LOG_PATH}
+    - ${IDF_PATH}/tools/ci/build_test_apps.sh
+
+build_test_apps_esp32:
+  extends: .build_test_apps
+  variables:
+    IDF_TARGET: esp32
+
+build_test_apps_esp32s2:
+  extends: .build_test_apps
+  variables:
+    IDF_TARGET: esp32s2
+
+
 # If you want to add new build example jobs, please add it into dependencies of `.example_test_template`
 
-build_docs:
+.build_docs_template: &build_docs_template
   stage: build
-  image: $CI_DOCKER_REGISTRY/esp32-ci-env$BOT_DOCKER_IMAGE_TAG
+  image: $ESP_IDF_DOC_ENV_IMAGE
   tags:
     - build_docs
   artifacts:
     when: always
     paths:
-      # English version of documentation
-      - docs/en/doxygen-warning-log.txt
-      - docs/en/sphinx-warning-log.txt
-      - docs/en/sphinx-warning-log-sanitized.txt
-      - docs/en/_build/html
-      - docs/sphinx-err-*
-      # Chinese version of documentation
-      - docs/zh_CN/doxygen-warning-log.txt
-      - docs/zh_CN/sphinx-warning-log.txt
-      - docs/zh_CN/sphinx-warning-log-sanitized.txt
-      - docs/zh_CN/_build/html
+      - docs/_build/*/*/*.txt
+      - docs/_build/*/*/html/*
     expire_in: 4 days
   only:
     variables:
@@ -212,17 +253,35 @@ build_docs:
       - $BOT_LABEL_BUILD
       - $BOT_LABEL_BUILD_DOCS
       - $BOT_LABEL_REGULAR_TEST
+  dependencies: []
   script:
     - cd docs
-    - ./check_lang_folder_sync.sh
-    - cd en
-    - make gh-linkcheck
-    - make html
-    - ../check_doc_warnings.sh
-    - cd ../zh_CN
-    - make gh-linkcheck
-    - make html
-    - ../check_doc_warnings.sh
+    - ${IDF_PATH}/tools/ci/multirun_with_pyenv.sh -p 3.6.10 pip install -r requirements.txt
+    - ${IDF_PATH}/tools/ci/multirun_with_pyenv.sh -p 3.6.10 ./build_docs.py -l $DOCLANG -t $DOCTGT build
+
+build_docs_en_esp32:
+  extends: .build_docs_template
+  variables:
+    DOCLANG: "en"
+    DOCTGT: "esp32"
+
+build_docs_en_esp32s2:
+  extends: .build_docs_template
+  variables:
+    DOCLANG: "en"
+    DOCTGT: "esp32s2"
+
+build_docs_zh_CN_esp32:
+  extends: .build_docs_template
+  variables:
+    DOCLANG: "zh_CN"
+    DOCTGT: "esp32"
+
+build_docs_zh_CN_esp32s2:
+  extends: .build_docs_template
+  variables:
+    DOCLANG: "zh_CN"
+    DOCTGT: "esp32s2"
 
 test_build_system:
   extends: .build_template

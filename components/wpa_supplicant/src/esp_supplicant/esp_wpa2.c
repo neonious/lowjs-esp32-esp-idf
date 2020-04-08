@@ -187,7 +187,6 @@ void wpa2_task(void *pvParameters )
     ETSEvent *e;
     struct eap_sm *sm = gEapSm;
     bool task_del = false;
-    uint32_t sig = 0;
 
     if (!sm) {
         return;
@@ -195,7 +194,10 @@ void wpa2_task(void *pvParameters )
 
     for (;;) {
         if ( pdPASS == xQueueReceive(s_wpa2_queue, &e, portMAX_DELAY) ) {
+#ifdef DEBUG_PRINT
+            uint32_t sig = 0;
             sig = e->sig;
+#endif
             if (e->sig < SIG_WPA2_MAX) {
                 DATA_MUTEX_TAKE();
                 if(sm->wpa2_sig_cnt[e->sig]) {
@@ -651,7 +653,7 @@ static int eap_sm_rx_eapol_internal(u8 *src_addr, u8 *buf, u32 len, uint8_t *bss
         break;
     case EAP_CODE_SUCCESS:
         if (sm->eapKeyData) {
-            wpa_set_pmk(sm->eapKeyData);
+            wpa_set_pmk(sm->eapKeyData, NULL, false);
             os_free(sm->eapKeyData);
             sm->eapKeyData = NULL;
             wpa_printf(MSG_INFO, ">>>>>wpa2 FINISH\n");
@@ -750,7 +752,7 @@ static int eap_peer_sm_init(void)
 
     s_wpa2_data_lock = xSemaphoreCreateRecursiveMutex();
     if (!s_wpa2_data_lock) {
-        wpa_printf(MSG_ERROR, "wpa2 eap_peer_sm_init: failed to alloc data lock");
+        wpa_printf(MSG_ERROR, "wpa2 eap_peer_sm_init: failed to alloc data lock");  // NOLINT(clang-analyzer-unix.Malloc)
         return ESP_ERR_NO_MEM;
     }
 

@@ -162,11 +162,9 @@ void bt_app_hf_cb(esp_hf_cb_event_t event, esp_hf_cb_param_t *param)
         {
             ESP_LOGI(BT_HF_TAG, "--Audio State %s", c_audio_state_str[param->audio_stat.state]);
 #if CONFIG_BTDM_CTRL_BR_EDR_SCO_DATA_PATH_HCI
-            if (param->audio_stat.state == ESP_HF_AUDIO_STATE_CONNECTED
-#if (BTM_WBS_INCLUDED == TRUE)
-                || param->audio_stat.state == ESP_HF_AUDIO_STATE_CONNECTED_MSBC
-#endif
-            ) {
+            if (param->audio_stat.state == ESP_HF_AUDIO_STATE_CONNECTED ||
+                param->audio_stat.state == ESP_HF_AUDIO_STATE_CONNECTED_MSBC)
+            {
                 esp_bt_hf_register_data_callback(bt_app_hf_incoming_cb, bt_app_hf_outgoing_cb);
             } else if (param->audio_stat.state == ESP_HF_AUDIO_STATE_DISCONNECTED) {
                 ESP_LOGI(BT_HF_TAG, "--ESP AG Audio Connection Disconnected.");
@@ -190,7 +188,7 @@ void bt_app_hf_cb(esp_hf_cb_event_t event, esp_hf_cb_param_t *param)
         case ESP_HF_UNAT_RESPONSE_EVT:
         {
             ESP_LOGI(BT_HF_TAG, "--UNKOW AT CMD: %s", param->unat_rep.unat);
-            esp_hf_unat_response(hf_peer_addr, param->unat_rep.unat);
+            esp_hf_unat_response(hf_peer_addr, NULL);
             break;
         }
 

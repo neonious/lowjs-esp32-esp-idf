@@ -14,6 +14,7 @@ set(srcs "port/os_xtensa.c"
     "src/crypto/aes-unwrap.c"
     "src/crypto/aes-wrap.c"
     "src/crypto/aes-omac1.c"
+    "src/crypto/sha256-tlsprf.c"
     "src/crypto/bignum.c"
     "src/crypto/ccmp.c"
     "src/crypto/crypto_mbedtls.c"
@@ -90,7 +91,7 @@ set(srcs "port/os_xtensa.c"
 idf_component_register(SRCS "${srcs}"
                     INCLUDE_DIRS include port/include include/esp_supplicant
                     PRIV_INCLUDE_DIRS src
-                    PRIV_REQUIRES mbedtls)
+                    PRIV_REQUIRES mbedtls esp_timer)
 
 target_compile_options(${COMPONENT_LIB} PRIVATE -Wno-strict-aliasing)
 target_compile_definitions(${COMPONENT_LIB} PRIVATE
@@ -111,4 +112,6 @@ target_compile_definitions(${COMPONENT_LIB} PRIVATE
     CONFIG_ECC
     CONFIG_IEEE80211W
     CONFIG_WPA3_SAE
+    CONFIG_TLSV12
+    CONFIG_SHA256
     )

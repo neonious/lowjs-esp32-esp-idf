@@ -8,7 +8,7 @@
 配置硬件
 ^^^^^^^^
 
-1.  根据 :doc:`../../hw-reference/get-started-wrover-kit` 文档中 :ref:`get-started-esp-wrover-kit-v4.1-setup-options` 章节所描述的信息，设置 JP8 便可以启用 JTAG 功能。 
+1.  根据 :doc:`../../hw-reference/esp32/get-started-wrover-kit` 文档中 :ref:`get-started-esp-wrover-kit-v4.1-setup-options` 章节所描述的信息，设置 JP8 便可以启用 JTAG 功能。
 
 2.  检查 ESP32 上用于 JTAG 通信的引脚是否被接到了其它硬件上，这可能会影响 JTAG 的工作。
 
@@ -40,7 +40,7 @@ Windows
 
 1.  使用标准 USB A / micro USB B 线将 ESP-WROVER-KIT 与计算机相连接，并打开板子的电源。
 
-2.  等待 Windows 识别出 ESP-WROVER-KIT 并且为其安装驱动。如果驱动没有被自动安装，请前往 `官网 <http://www.ftdichip.com/Drivers/D2XX.htm>`_ 下载并手动安装。
+2.  等待 Windows 识别出 ESP-WROVER-KIT 并且为其安装驱动。如果驱动没有被自动安装，请前往 `官网 <https://www.ftdichip.com/Drivers/D2XX.htm>`_ 下载并手动安装。
 
 3.  从 `Zadig 官网 <http://zadig.akeo.ie/>`_ 下载 Zadig 工具（Zadig_X.X.exe）并运行。
 
@@ -100,16 +100,16 @@ Linux
 MacOS
 """""
 
-在 macOS 上，同时使用 FT2232 的 JTAG 接口和串口还需另外进行其它操作。当操作系统加载 FTDI 串口驱动的时候，它会对 FT2232 芯片的两个通道做相同的操作。但是，这两个通道中只有一个是被用作串口，而另一个用于 JTAG，如果操作系统已经为用于 JTAG 的通道加载了 FTDI 串口驱动的话，OpenOCD 将无法连接到芯片。有两个方法可以解决这个问题： 
+在 macOS 上，同时使用 FT2232 的 JTAG 接口和串口还需另外进行其它操作。当操作系统加载 FTDI 串口驱动的时候，它会对 FT2232 芯片的两个通道做相同的操作。但是，这两个通道中只有一个是被用作串口，而另一个用于 JTAG，如果操作系统已经为用于 JTAG 的通道加载了 FTDI 串口驱动的话，OpenOCD 将无法连接到芯片。有两个方法可以解决这个问题：
 
 1. 在启动 OpenOCD 之前手动卸载 FTDI 串口驱动程序，然后启动 OpenOCD，再加载串口驱动程序。
 
-2. 修改 FTDI 驱动程序的配置，使其不会为 FT2232 芯片的通道 B 进行自我加载，该通道用于 ESP-WROVER-KIT 板上的 JTAG 通道。 
+2. 修改 FTDI 驱动程序的配置，使其不会为 FT2232 芯片的通道 B 进行自我加载，该通道用于 ESP-WROVER-KIT 板上的 JTAG 通道。
 
 手动卸载驱动程序
 ................
 
-1. 从 `FTDI 官网 <http://www.ftdichip.com/Drivers/VCP.htm>`_ 安装驱动。
+1. 从 `FTDI 官网 <https://www.ftdichip.com/Drivers/VCP.htm>`_ 安装驱动。
 
 2. 使用 USB 线连接 ESP-WROVER-KIT。
 

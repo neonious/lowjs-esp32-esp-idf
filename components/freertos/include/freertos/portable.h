@@ -86,14 +86,13 @@ specific constants has been moved into the deprecated_definitions.h header
 file. */
 #include "deprecated_definitions.h"
 
-#include "soc/cpu.h"
 
 /* If portENTER_CRITICAL is not defined then including deprecated_definitions.h
 did not result in a portmacro.h header file being included - and it should be
 included here.  In this case the path to the correct portmacro.h header file
 must be set in the compiler's include path. */
 #ifndef portENTER_CRITICAL
-	#include "portmacro.h"
+	#include "freertos/portmacro.h"
 #endif
 
 #if portBYTE_ALIGNMENT == 8
@@ -126,6 +125,9 @@ extern "C" {
 
 #include "mpu_wrappers.h"
 #include "esp_system.h"
+
+#include "hal/cpu_hal.h"
+#include "xt_instr_macros.h"
 
 /*
  * Setup the stack of a new task so it is ready to be placed under the
@@ -200,12 +202,7 @@ BaseType_t xPortInterruptedFromISRContext(void);
 
 /* Multi-core: get current core ID */
 static inline uint32_t IRAM_ATTR xPortGetCoreID(void) {
-    uint32_t id;
-    __asm__ __volatile__ (
-        "rsr.prid %0\n"
-        " extui %0,%0,13,1"
-        :"=r"(id));
-    return id;
+    return cpu_hal_get_core_id();
 }
 
 /* Get tick rate per second */

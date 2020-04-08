@@ -220,7 +220,7 @@ function run_tests()
     # and therefore should rebuild
     assert_rebuilt esp-idf/newlib/CMakeFiles/${IDF_COMPONENT_PREFIX}_newlib.dir/syscall_table.c.obj
     assert_rebuilt esp-idf/nvs_flash/CMakeFiles/${IDF_COMPONENT_PREFIX}_nvs_flash.dir/src/nvs_api.cpp.obj
-    assert_rebuilt esp-idf/freertos/CMakeFiles/${IDF_COMPONENT_PREFIX}_freertos.dir/xtensa_vectors.S.obj
+    assert_rebuilt esp-idf/freertos/CMakeFiles/${IDF_COMPONENT_PREFIX}_freertos.dir/xtensa/xtensa_vectors.S.obj
     mv sdkconfig.bak sdkconfig
 
     print_status "Updating project CMakeLists.txt triggers full recompile"
@@ -235,7 +235,7 @@ function run_tests()
     # similar to previous test
     assert_rebuilt esp-idf/newlib/CMakeFiles/${IDF_COMPONENT_PREFIX}_newlib.dir/syscall_table.c.obj
     assert_rebuilt esp-idf/nvs_flash/CMakeFiles/${IDF_COMPONENT_PREFIX}_nvs_flash.dir/src/nvs_api.cpp.obj
-    assert_rebuilt esp-idf/freertos/CMakeFiles/${IDF_COMPONENT_PREFIX}_freertos.dir/xtensa_vectors.S.obj
+    assert_rebuilt esp-idf/freertos/CMakeFiles/${IDF_COMPONENT_PREFIX}_freertos.dir/xtensa/xtensa_vectors.S.obj
     mv sdkconfig.bak sdkconfig
 
     print_status "Can build with Ninja (no idf.py)"
@@ -247,6 +247,19 @@ function run_tests()
     clean_build_dir
     mkdir build
     (cd build && cmake -G "Unix Makefiles" .. && make) || failure "Make build failed"
+    assert_built ${APP_BINS} ${BOOTLOADER_BINS} ${PARTITION_BIN}
+
+    print_status "idf.py can build with Ninja"
+    clean_build_dir
+    idf.py -G Ninja build  || failure "idf.py cannot build with Ninja"
+    grep "CMAKE_GENERATOR:INTERNAL=Ninja" build/CMakeCache.txt || failure "Ninja is not set in CMakeCache.txt"
+    assert_built ${APP_BINS} ${BOOTLOADER_BINS} ${PARTITION_BIN}
+
+    print_status "idf.py can build with Unix Makefiles"
+    clean_build_dir
+    mkdir build
+    idf.py -G "Unix Makefiles" build || failure "idf.py cannot build with Unix Makefiles"
+    grep "CMAKE_GENERATOR:INTERNAL=Unix Makefiles" build/CMakeCache.txt || failure "Unix Makefiles are not set in CMakeCache.txt"
     assert_built ${APP_BINS} ${BOOTLOADER_BINS} ${PARTITION_BIN}
 
     print_status "Can build with IDF_PATH set via cmake cache not environment"
@@ -307,7 +320,7 @@ function run_tests()
     rm sdkconfig
     rm sdkconfig.defaults
 
-    # the next four tests use the esp32s2 target
+    # the next tests use the esp32s2 target
     export other_target=esp32s2
 
     print_status "Can override IDF_TARGET from environment"
@@ -339,6 +352,49 @@ function run_tests()
     idf.py set-target ${other_target} || failure "Failed to set target via idf.py set-target"
     grep "CONFIG_IDF_TARGET=\"${other_target}\"" sdkconfig || failure "Project not configured correctly using idf.py set-target"
     grep "IDF_TARGET:STRING=${other_target}" build/CMakeCache.txt || failure "IDF_TARGET not set in CMakeCache.txt using idf.py set-target"
+
+    print_status "Can guess target from sdkconfig, if CMakeCache does not exist"
+    idf.py fullclean || failure "Failed to clean the build directory"
+    idf.py reconfigure || failure "Failed to reconfigure after fullclean"
+    grep "CONFIG_IDF_TARGET=\"${other_target}\"" sdkconfig || failure "Didn't find the expected CONFIG_IDF_TARGET value"
+    grep "IDF_TARGET:STRING=${other_target}" build/CMakeCache.txt || failure "IDF_TARGET not set in CMakeCache.txt after fullclean and reconfigure"
+
+    print_status "Can set the default target using sdkconfig.defaults"
+    clean_build_dir
+    rm sdkconfig
+    echo "CONFIG_IDF_TARGET=\"${other_target}\"" > sdkconfig.defaults
+    idf.py reconfigure || failure "Failed to reconfigure with default target set in sdkconfig.defaults"
+    grep "CONFIG_IDF_TARGET=\"${other_target}\"" sdkconfig || failure "Didn't find the expected CONFIG_IDF_TARGET value"
+    other_target_caps=$(tr 'a-z' 'A-Z' <<< "${other_target}")
+    grep "CONFIG_IDF_TARGET_${other_target_caps}=y" sdkconfig || failure "Didn't find CONFIG_IDF_TARGET_${other_target_caps} value"
+    grep "IDF_TARGET:STRING=${other_target}" build/CMakeCache.txt || failure "IDF_TARGET not set in CMakeCache.txt after fullclean and reconfigure"
+    rm sdkconfig.defaults
+
+    print_status "IDF_TARGET takes precedence over the value of CONFIG_IDF_TARGET in sdkconfig.defaults"
+    clean_build_dir
+    rm sdkconfig
+    echo "CONFIG_IDF_TARGET=\"${other_target}\"" > sdkconfig.defaults
+    export IDF_TARGET=esp32
+    idf.py reconfigure || failure "Failed to reconfigure with default target set in sdkconfig.defaults and different IDF_TARGET in the environment"
+    grep "CONFIG_IDF_TARGET=\"esp32\"" sdkconfig || failure "Didn't find the expected CONFIG_IDF_TARGET value"
+    grep "CONFIG_IDF_TARGET_ESP32=y" sdkconfig || failure "Didn't find CONFIG_IDF_TARGET_ESP32 value"
+    grep "IDF_TARGET:STRING=esp32" build/CMakeCache.txt || failure "IDF_TARGET not set in CMakeCache.txt after fullclean and reconfigure"
+    rm sdkconfig.defaults
+    unset IDF_TARGET
+
+    print_status "idf.py fails if IDF_TARGET settings don't match in sdkconfig, CMakeCache.txt, and the environment"
+    clean_build_dir
+    rm sdkconfig
+    idf.py set-target ${other_target} || failure "Couldn't set target to ${other_target}"
+    # Change to a different IDF_TARGET in the environment
+    export IDF_TARGET=esp32
+    ! idf.py reconfigure || failure "Build did't fail when IDF_TARGET was set to an incompatible value in the environment"
+    # Now make sdkconfig consistent with the environement (note: not really consistent, just for the purpose of the test)
+    echo "CONFIG_IDF_TARGET=\"esp32\"" >> sdkconfig
+    ! idf.py reconfigure || failure "Build did't fail when IDF_TARGET in CMakeCache.txt didn't match the environment"
+    # Now unset IDF_TARGET in the environment, sdkconfig and CMakeCache.txt are still inconsistent
+    unset IDF_TARGET
+    ! idf.py reconfigure || failure "Build did't fail when IDF_TARGET in CMakeCache.txt didn't match the sdkconfig"
 
     unset other_target  # done changing target from the default
     clean_build_dir
@@ -402,6 +458,25 @@ function run_tests()
     (cd build && cmake $IDF_PATH/examples/build_system/cmake/idf_as_lib -DCMAKE_TOOLCHAIN_FILE=$IDF_PATH/tools/cmake/toolchain-esp32.cmake -DTARGET=esp32)
     grep -q '"command"' build/compile_commands.json || failure "compile_commands.json missing or has no no 'commands' in it"
     (grep '"command"' build/compile_commands.json | grep -v mfix-esp32-psram-cache-issue) && failure "All commands in compile_commands.json should use PSRAM cache workaround"
+    rm -r build
+    #Test for various strategies
+    for strat in MEMW NOPS DUPLDST; do
+        rm -r build sdkconfig.defaults sdkconfig sdkconfig.defaults.esp32
+        stratlc=`echo $strat | tr A-Z a-z`
+        mkdir build && touch build/sdkconfig
+        echo "CONFIG_ESP32_SPIRAM_SUPPORT=y" > sdkconfig.defaults
+        echo "CONFIG_SPIRAM_CACHE_WORKAROUND_STRATEGY_$strat=y"  >> sdkconfig.defaults
+        echo "CONFIG_SPIRAM_CACHE_WORKAROUND=y" >> sdkconfig.defaults
+        # note: we do 'reconfigure' here, as we just need to run cmake
+        idf.py reconfigure
+        grep -q '"command"' build/compile_commands.json || failure "compile_commands.json missing or has no no 'commands' in it"
+        (grep '"command"' build/compile_commands.json | grep -v mfix-esp32-psram-cache-strategy=$stratlc) && failure "All commands in compile_commands.json should use PSRAM cache workaround strategy $strat when selected"
+        echo ${PWD}
+        rm -r sdkconfig.defaults build
+    done
+
+    print_status "Displays partition table when executing target partition_table"
+    idf.py partition_table | grep -E "# ESP-IDF .+ Partition Table"
     rm -r build
 
     print_status "Make sure a full build never runs '/usr/bin/env python' or similar"
@@ -589,8 +664,8 @@ endmenu\n" >> ${IDF_PATH}/Kconfig
     printf "\n#include \"test_component.h\"\n" >> main/main.c
     printf "dependencies:\n  test_component:\n    path: test_component\n    git: ${COMPONENT_MANAGER_TEST_REPO}\n" >> idf_project.yml
     ! idf.py build || failure "Build should fail if dependencies are not installed"
-    pip install ${COMPONENT_MANAGER_REPO}
-    idf.py reconfigure build || failure "Build succeeds once requirements are installed"
+    pip install ${COMPONENT_MANAGER_REPO} || failure "Failed to install the component manager"
+    idf.py reconfigure build || failure "Build didn't succeed with required components installed by package manager"
     pip uninstall -y idf_component_manager
     rm idf_project.yml
     git checkout main/main.c
@@ -607,14 +682,17 @@ endmenu\n" >> ${IDF_PATH}/Kconfig
     idf.py bootloader || failure "Failed to build bootloader"
     bin_header_match build/bootloader/bootloader.bin "0210"
     # Change to 4MB
+    sleep 1 # delay here to make sure sdkconfig modification time is different
     echo "CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y" > sdkconfig
     idf.py bootloader || failure "Failed to build bootloader"
     bin_header_match build/bootloader/bootloader.bin "0220"
     # Change to QIO, bootloader should still be DIO (will change to QIO in 2nd stage bootloader)
+    sleep 1 # delay here to make sure sdkconfig modification time is different
     echo "CONFIG_FLASHMODE_QIO=y" > sdkconfig
     idf.py bootloader || failure "Failed to build bootloader"
     bin_header_match build/bootloader/bootloader.bin "0210"
     # Change to 80 MHz
+    sleep 1 # delay here to make sure sdkconfig modification time is different
     echo "CONFIG_ESPTOOLPY_FLASHFREQ_80M=y" > sdkconfig
     idf.py bootloader || failure "Failed to build bootloader"
     bin_header_match build/bootloader/bootloader.bin "021f"

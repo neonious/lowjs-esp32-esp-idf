@@ -22,10 +22,12 @@
 #include "bootloader_clock.h"
 #include "bootloader_common.h"
 #include "bootloader_flash_config.h"
+#include "bootloader_mem.h"
 
 #include "soc/cpu.h"
 #include "soc/dport_reg.h"
 #include "soc/efuse_reg.h"
+#include "soc/gpio_periph.h"
 #include "soc/gpio_sig_map.h"
 #include "soc/io_mux_reg.h"
 #include "soc/rtc.h"
@@ -416,7 +418,7 @@ static void bootloader_check_wdt_reset(void)
 
 void abort(void)
 {
-#if !CONFIG_ESP32_PANIC_SILENT_REBOOT
+#if !CONFIG_ESP_SYSTEM_PANIC_SILENT_REBOOT
     ets_printf("abort() was called at PC 0x%08x\r\n", (intptr_t)__builtin_return_address(0) - 3);
 #endif
     if (esp_cpu_in_ocd_debug_mode()) {
@@ -429,10 +431,9 @@ void abort(void)
 esp_err_t bootloader_init(void)
 {
     esp_err_t ret = ESP_OK;
-    // workaround for tensilica erratum572
-    cpu_init_memctl();
-    // protect memory region
-    cpu_configure_region_protection();
+
+    bootloader_init_mem();
+
     // check that static RAM is after the stack
 #ifndef NDEBUG
     {

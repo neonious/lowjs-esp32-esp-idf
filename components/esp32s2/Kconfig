@@ -4,27 +4,6 @@ menu "ESP32S2-specific"
     # not working so we just hide all items here
     visible if IDF_TARGET_ESP32S2
 
-    choice ESP32S2_CHIP_VERSION
-        # TODO: remove once final S2 chip is supported
-        prompt "ESP32-S2 chip version"
-        default ESP32S2_VERSION_A
-        help
-            There are three versions of ESP32-S2 chip with different Wi-Fi PHY: A, B and Marlin3.
-
-            This setting must match the chip for Wi-Fi to work correctly. You can determine
-            the chip version by reading the markings on top of the chip. It will be one of the
-            three options given here.
-
-            The Wi-Fi performance of Marlin3 is the best among the three versions of chip.
-
-        config ESP32S2_VERSION_A
-            bool "Chip7.2.2-A"
-        config ESP32S2_VERSION_B
-            bool "Chip7.2.2-B"
-        config ESP32S2_VERSION_MARLIN3
-            bool "Marlin3-B2 or Marlin3-B3"
-    endchoice
-
     choice ESP32S2_DEFAULT_CPU_FREQ_MHZ
         prompt "CPU frequency"
         default ESP32S2_DEFAULT_CPU_FREQ_160 if !IDF_ENV_FPGA
@@ -33,6 +12,7 @@ menu "ESP32S2-specific"
             CPU frequency to be set on application startup.
 
         config ESP32S2_DEFAULT_CPU_FREQ_FPGA
+            depends on IDF_ENV_FPGA
             bool "FPGA"
         config ESP32S2_DEFAULT_CPU_FREQ_80
             bool "80 MHz"
@@ -138,7 +118,13 @@ menu "ESP32S2-specific"
 
         choice SPIRAM_TYPE
             prompt "Type of SPI RAM chip in use"
-            default SPIRAM_TYPE_ESPPSRAM32
+            default SPIRAM_TYPE_AUTO
+
+            config SPIRAM_TYPE_AUTO
+                bool "Auto-detect"
+
+            config SPIRAM_TYPE_ESPPSRAM16
+                bool "ESP-PSRAM16 or APS1604"
 
             config SPIRAM_TYPE_ESPPSRAM32
                 bool "ESP-PSRAM32 or IS25WP032"
@@ -149,9 +135,12 @@ menu "ESP32S2-specific"
 
         config SPIRAM_SIZE
             int
+            default -1 if SPIRAM_TYPE_AUTO
+            default 2097152 if SPIRAM_TYPE_ESPPSRAM16
             default 4194304 if SPIRAM_TYPE_ESPPSRAM32
             default 8388608 if SPIRAM_TYPE_ESPPSRAM64
             default 0
+
         menu "PSRAM clock and cs IO for ESP32S2"
             depends on ESP32S2_SPIRAM_SUPPORT
             config DEFAULT_PSRAM_CLK_IO
@@ -244,6 +233,10 @@ menu "ESP32S2-specific"
         bool
         default "n"
 
+    config ESP32S2_MEMMAP_TRACEMEM_TWOBANKS
+        bool
+        default "n"
+
     config ESP32S2_TRAX
         bool "Use TRAX tracing feature"
         default "n"
@@ -312,38 +305,6 @@ menu "ESP32S2-specific"
 
             Data is reserved at the beginning of RTC slow memory.
 
-    choice ESP32S2_PANIC
-        prompt "Panic handler behaviour"
-        default ESP32S2_PANIC_PRINT_REBOOT
-        help
-            If FreeRTOS detects unexpected behaviour or an unhandled exception, the panic handler is
-            invoked. Configure the panic handlers action here.
-
-        config ESP32S2_PANIC_PRINT_HALT
-            bool "Print registers and halt"
-            help
-                Outputs the relevant registers over the serial port and halt the
-                processor. Needs a manual reset to restart.
-
-        config ESP32S2_PANIC_PRINT_REBOOT
-            bool "Print registers and reboot"
-            help
-                Outputs the relevant registers over the serial port and immediately
-                reset the processor.
-
-        config ESP32S2_PANIC_SILENT_REBOOT
-            bool "Silent reboot"
-            help
-                Just resets the processor without outputting anything
-
-        config ESP32S2_PANIC_GDBSTUB
-            bool "Invoke GDBStub"
-            select ESP_GDBSTUB_ENABLED
-            help
-                Invoke gdbstub on the serial port, allowing for gdb to attach to it to do a postmortem
-                of the crash.
-    endchoice
-
     config ESP32S2_DEBUG_OCDAWARE
         bool "Make exception and panic handlers JTAG/OCD aware"
         default y
@@ -364,42 +325,39 @@ menu "ESP32S2-specific"
         bool "Hardware brownout detect & reset"
         default y
         help
-            The ESP32S2 has a built-in brownout detector which can detect if the voltage is lower than
+            The ESP32-S2 has a built-in brownout detector which can detect if the voltage is lower than
             a specific value. If this happens, it will reset the chip in order to prevent unintended
             behaviour.
 
     choice ESP32S2_BROWNOUT_DET_LVL_SEL
         prompt "Brownout voltage level"
         depends on ESP32S2_BROWNOUT_DET
-        default ESP32S2_BROWNOUT_DET_LVL_SEL_0
+        default ESP32S2_BROWNOUT_DET_LVL_SEL_7
         help
             The brownout detector will reset the chip when the supply voltage is approximately
             below this level. Note that there may be some variation of brownout voltage level
-            between each ESP32 chip.
+            between each ESP3-S2 chip.
 
             #The voltage levels here are estimates, more work needs to be done to figure out the exact voltages
             #of the brownout threshold levels.
-        config ESP32S2_BROWNOUT_DET_LVL_SEL_0
-            bool "2.43V +/- 0.05"
-        config ESP32S2_BROWNOUT_DET_LVL_SEL_1
-            bool "2.48V +/- 0.05"
-        config ESP32S2_BROWNOUT_DET_LVL_SEL_2
-            bool "2.58V +/- 0.05"
-        config ESP32S2_BROWNOUT_DET_LVL_SEL_3
-            bool "2.62V +/- 0.05"
-        config ESP32S2_BROWNOUT_DET_LVL_SEL_4
-            bool "2.67V +/- 0.05"
-        config ESP32S2_BROWNOUT_DET_LVL_SEL_5
-            bool "2.70V +/- 0.05"
-        config ESP32S2_BROWNOUT_DET_LVL_SEL_6
-            bool "2.77V +/- 0.05"
         config ESP32S2_BROWNOUT_DET_LVL_SEL_7
-            bool "2.80V +/- 0.05"
+            bool "2.44V"
+        config ESP32S2_BROWNOUT_DET_LVL_SEL_6
+            bool "2.56V"
+        config ESP32S2_BROWNOUT_DET_LVL_SEL_5
+            bool "2.67V"
+        config ESP32S2_BROWNOUT_DET_LVL_SEL_4
+            bool "2.84V"
+        config ESP32S2_BROWNOUT_DET_LVL_SEL_3
+            bool "2.98V"
+        config ESP32S2_BROWNOUT_DET_LVL_SEL_2
+            bool "3.19V"
+        config ESP32S2_BROWNOUT_DET_LVL_SEL_1
+            bool "3.30V"
     endchoice
 
     config ESP32S2_BROWNOUT_DET_LVL
         int
-        default 0 if ESP32S2_BROWNOUT_DET_LVL_SEL_0
         default 1 if ESP32S2_BROWNOUT_DET_LVL_SEL_1
         default 2 if ESP32S2_BROWNOUT_DET_LVL_SEL_2
         default 3 if ESP32S2_BROWNOUT_DET_LVL_SEL_3
@@ -451,16 +409,37 @@ menu "ESP32S2-specific"
         help
             Choose which clock is used as RTC clock source.
 
+            - "Internal 90kHz oscillator" option provides lowest deep sleep current
+              consumption, and does not require extra external components. However
+              frequency stability with respect to temperature is poor, so time may
+              drift in deep/light sleep modes.
+            - "External 32kHz crystal" provides better frequency stability, at the
+              expense of slightly higher (1uA) deep sleep current consumption.
+            - "External 32kHz oscillator" allows using 32kHz clock generated by an
+              external circuit. In this case, external clock signal must be connected
+              to 32K_XP pin. Amplitude should be <1.2V in case of sine wave signal,
+              and <1V in case of square wave signal. Common mode voltage should be
+              0.1 < Vcm < 0.5Vamp, where Vamp is the signal amplitude.
+              Additionally, 1nF capacitor must be connected between 32K_XN pin and
+              ground. 32K_XN pin can not be used as a GPIO in this case.
+            - "Internal 8MHz oscillator divided by 256" option results in higher
+              deep sleep current (by 5uA) but has better frequency stability than
+              the internal 90kHz oscillator. It does not require external components.
+
         config ESP32S2_RTC_CLK_SRC_INT_RC
-            bool "Internal 150kHz RC oscillator"
+            bool "Internal 90kHz RC oscillator"
         config ESP32S2_RTC_CLK_SRC_EXT_CRYS
             bool "External 32kHz crystal"
+        config ESP32S2_RTC_CLK_SRC_EXT_OSC
+            bool "External 32kHz oscillator at 32K_XP pin"
+        config ESP32S2_RTC_CLK_SRC_INT_8MD256
+            bool "Internal 8MHz oscillator, divided by 256 (~32kHz)"
     endchoice
 
     config ESP32S2_RTC_CLK_CAL_CYCLES
         int "Number of cycles for RTC_SLOW_CLK calibration"
         default 3000 if ESP32S2_RTC_CLK_SRC_EXT_CRYS
-        default 1024 if ESP32S2_RTC_CLK_SRC_INT_RC
+        default 576 if ESP32S2_RTC_CLK_SRC_INT_RC
         range 0 125000
         help
             When the startup code initializes RTC_SLOW_CLK, it can perform
@@ -477,6 +456,16 @@ menu "ESP32S2-specific"
             - 32768 Hz if the 32k crystal oscillator is used. For this use value 3000 or more.
               In case more value will help improve the definition of the launch of the crystal.
               If the crystal could not start, it will be switched to internal RC.
+
+    config ESP32S2_RTC_XTAL_CAL_RETRY
+        int "Number of attempts to repeat 32k XTAL calibration"
+        default 3
+        depends on ESP32S2_RTC_CLK_SRC_EXT_CRYS
+        help
+            Number of attempts to repeat 32k XTAL calibration
+            before giving up and switching to the internal RC.
+            Increase this option if the 32k crystal oscillator
+            does not start and switches to internal RC.
 
     config ESP32S2_DISABLE_BASIC_ROM_CONSOLE
         bool "Permanently disable BASIC ROM Console"

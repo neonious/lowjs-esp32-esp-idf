@@ -5,8 +5,8 @@
 
 MEMORY
 {
-  iram_loader_seg (RWX) :           org = 0x40050000, len = 0x4000  /* 16KB, SRAM Block_14 */
-  iram_seg (RWX) :                  org = 0x40054000, len = 0x4000  /* 16KB, SRAM Block_15 */
+  iram_seg (RWX) :                  org = 0x40050000, len = 0x4000  /* 16KB, SRAM Block_14 */
+  iram_loader_seg (RWX) :           org = 0x40054000, len = 0x4000  /* 16KB, SRAM Block_15 */
   dram_seg (RW) :                   org = 0x3FFE8000, len = 0x2800  /* 10KB, Top of SRAM Block_16, and before ROM data and stack */
 }
 
@@ -28,6 +28,7 @@ SECTIONS
     *libbootloader_support.a:bootloader_common.*(.literal .text .literal.* .text.*)
     *libbootloader_support.a:bootloader_flash.*(.literal .text .literal.* .text.*)
     *libbootloader_support.a:bootloader_random.*(.literal .text .literal.* .text.*)
+    *libbootloader_support.a:bootloader_efuse_esp32s2.*(.literal .text .literal.* .text.*)
     *libbootloader_support.a:bootloader_utility.*(.literal .text .literal.* .text.*)
     *libbootloader_support.a:bootloader_sha.*(.literal .text .literal.* .text.*)
     *libbootloader_support.a:esp_image_format.*(.literal .text .literal.* .text.*)
@@ -37,7 +38,7 @@ SECTIONS
     *libbootloader_support.a:secure_boot_signatures.*(.literal .text .literal.* .text.*)
     *libmicro-ecc.a:*.*(.literal .text .literal.* .text.*)
     *libspi_flash.a:*.*(.literal .text .literal.* .text.*)
-    *libsoc.a:rtc_wdt.*(.literal .text .literal.* .text.*)
+    *libsoc.a:wdt_hal_iram.*(.literal .text .literal.* .text.*)
     *libefuse.a:*.*(.literal .text .literal.* .text.*)
     *(.fini.literal)
     *(.fini)
@@ -58,6 +59,7 @@ SECTIONS
   .dram0.bss (NOLOAD) :
   {
     . = ALIGN (8);
+    _dram_start = ABSOLUTE(.);
     _bss_start = ABSOLUTE(.);
     *(.dynsbss)
     *(.sbss)
@@ -134,7 +136,7 @@ SECTIONS
     *(.gnu.linkonce.lit4.*)
     _lit4_end = ABSOLUTE(.);
     . = ALIGN(4);
-    _heap_start = ABSOLUTE(.);
+    _dram_end = ABSOLUTE(.);
   } >dram_seg
 
   .iram.text :

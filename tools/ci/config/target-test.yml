@@ -83,6 +83,29 @@
     # run test
     - python Runner.py $TEST_CASE_PATH -c $CONFIG_FILE -e $ENV_FILE
 
+.test_app_template:
+  extends: .example_test_template
+  stage: target_test
+  dependencies:
+    - assign_test
+  only:
+    refs:
+      - master
+      - /^release\/v/
+      - /^v\d+\.\d+(\.\d+)?($|-)/
+      - triggers
+      - schedules
+    variables:
+      - $BOT_TRIGGER_WITH_LABEL == null
+      - $BOT_LABEL_CUSTOM_TEST
+      - $BOT_LABEL_EXAMPLE_TEST
+  variables:
+    TEST_FW_PATH: "$CI_PROJECT_DIR/tools/tiny-test-fw"
+    TEST_CASE_PATH: "$CI_PROJECT_DIR/tools/test_apps"
+    CONFIG_FILE_PATH: "${CI_PROJECT_DIR}/tools/test_apps/test_configs"
+    LOG_PATH: "$CI_PROJECT_DIR/TEST_LOGS"
+    ENV_FILE: "$CI_PROJECT_DIR/ci-test-runner-configs/$CI_RUNNER_DESCRIPTION/EnvConfig.yml"
+
 .unit_test_template:
   extends: .example_test_template
   stage: target_test
@@ -279,6 +302,18 @@ example_test_010:
     - ESP32
     - Example_ExtFlash
 
+test_app_test_001:
+  extends: .test_app_template
+  tags:
+    - ESP32
+    - test_jtag_arm
+
+test_app_test_002:
+  extends: .test_app_template
+  tags:
+    - ESP32
+    - Example_WIFI
+
 example_test_011:
   extends: .example_debug_template
   tags:
@@ -301,7 +336,7 @@ example_test_012:
 
 UT_001:
   extends: .unit_test_template
-  parallel: 33
+  parallel: 37
   tags:
     - ESP32_IDF
     - UT_T1_1
@@ -310,7 +345,7 @@ UT_001:
 
 UT_002:
   extends: .unit_test_template
-  parallel: 10
+  parallel: 14
   tags:
     - ESP32_IDF
     - UT_T1_1
@@ -349,13 +384,6 @@ UT_008:
     - UT_T1_GPIO
     - psram
 
-UT_010:
-  extends: .unit_test_template
-  tags:
-    - ESP32_IDF
-    - UT_T1_PCNT
-    - psram
-
 UT_012:
   extends: .unit_test_template
   tags:
@@ -391,7 +419,7 @@ UT_017:
 
 UT_018:
   extends: .unit_test_template
-  parallel: 2
+  parallel: 4
   tags:
     - ESP32_IDF
     - UT_T1_1
@@ -425,13 +453,6 @@ UT_024:
     - UT_T1_MCPWM
     - psram
 
-UT_026:
-  extends: .unit_test_template
-  tags:
-    - ESP32_IDF
-    - UT_T1_I2S
-    - psram
-
 UT_028:
   extends: .unit_test_template
   tags:
@@ -458,9 +479,23 @@ UT_034:
     - ESP32_IDF
     - UT_T1_ESP_FLASH
 
-UT_035:
+.unit_test_s2_template:
   extends: .unit_test_template
-  parallel: 24
+  only:
+    refs:
+      # Due to lack of runners, the tests are only done by manual trigger
+      # - master
+      # - /^release\/v/
+      # - /^v\d+\.\d+(\.\d+)?($|-)/
+      - triggers
+      - schedules
+    variables:
+      - $BOT_TRIGGER_WITH_LABEL == null
+      - $BOT_LABEL_UNIT_TEST_S2
+
+UT_035:
+  extends: .unit_test_s2_template
+  parallel: 32
   tags:
     - ESP32S2_IDF
     - UT_T1_1

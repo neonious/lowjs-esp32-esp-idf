@@ -73,7 +73,12 @@
 
 [submodule "components/esp_wifi/lib"]
 	path = components/esp_wifi/lib
-	url = https://www.github.com/espressif/esp32-wifi-lib.git
+	url = ../../espressif/esp32-wifi-lib.git
+
 [submodule "components/spiffs/spiffs"]
 	path = components/spiffs/spiffs
 	url = https://neonious.com:444/thomas/neon-spiffs
+
+[submodule "components/tinyusb/tinyusb"]
+	path = components/tinyusb/tinyusb
+	url = ../../espressif/tinyusb.git
