@@ -135,9 +135,9 @@ static esp_err_t mount_to_vfs_fat(const esp_vfs_fat_mount_config_t *mount_config
             ESP_LOGD(TAG, "f_mount failed after formatting (%d)", res);
             goto fail;
         }
-
-        fat_ctx = fat_ctx_;
     }
+    fat_ctx = fat_ctx_;
+
     return ESP_OK;
 
 fail:
@@ -288,81 +288,6 @@ bus first and check the device parameters."
     return err;
 }
 
-/*
-
-esp_err_t esp_vfs_fat_sdspi_mount(const char* base_path,
-                                  const sdmmc_host_t* host_config_input,
-                                  const sdspi_device_config_t* slot_config,
-                                  const esp_vfs_fat_mount_config_t* mount_config,
-                                  sdmmc_card_t** out_card)
-{
-    const sdmmc_host_t* host_config = host_config_input;
-    esp_err_t err;
-    int card_handle = -1;   //uninitialized
-    bool host_inited = false;
-    BYTE pdrv = FF_DRV_NOT_USED;
-    sdmmc_card_t* card = NULL;
-    char* dup_path = NULL;
-
-    err = mount_prepare_mem(base_path, &pdrv, &dup_path, &card);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "mount_prepare failed");
-        return err;
-    }
-
-    //the init() function is usually empty, doesn't require any deinit to revert it
-    err = (*host_config->init)();
-    CHECK_EXECUTE_RESULT(err, "host init failed");
-
-    err = init_sdspi_host(host_config->slot, slot_config, &card_handle);
-    CHECK_EXECUTE_RESULT(err, "slot init failed");
-    //Set `host_inited` to true to indicate that host_config->deinit() needs
-    //to be called to revert `init_sdspi_host`
-    host_inited = true;
-
-    /*
-     * The `slot` argument inside host_config should be replaced by the SD SPI handled returned
-     * above. But the input pointer is const, so create a new variable.
-     */
-    sdmmc_host_t new_config;
-    if (card_handle != host_config->slot) {
-        new_config = *host_config_input;
-        host_config = &new_config;
-        new_config.slot = card_handle;
-    }
-
-    // probe and initialize card
-    err = sdmmc_card_init(host_config, card);
-    CHECK_EXECUTE_RESULT(err, "sdmmc_card_init failed");
-
-    err = mount_to_vfs_fat(mount_config, card, pdrv, dup_path);
-    CHECK_EXECUTE_RESULT(err, "mount_to_vfs failed");
-
-    if (out_card != NULL) {
-        *out_card = card;
-    }
-    if (s_card == NULL) {
-        //store the ctx locally to be back-compatible
-        s_card = card;
-        s_pdrv = pdrv;
-        s_base_path = dup_path;
-    } else {
-        free(dup_path);
-    }
-    return ESP_OK;
-
-cleanup:
-    if (host_inited) {
-        call_host_deinit(host_config);
-    }
-    free(card);
-    free(dup_path);
-    return err;
-
-}
-
-*/
-
 static void local_card_remove(void)
 {
     s_card = NULL;
@@ -402,6 +327,8 @@ static esp_err_t unmount_card_core(const char *base_path, sdmmc_card_t *card)
 
 esp_err_t esp_vfs_fat_sdmmc_unmount(void)
 {
+    if(!fat_ctx)
+	return ESP_OK;
     pthread_mutex_lock(&unregister_lock);
     fat_ctx = NULL;
     pthread_mutex_unlock(&unregister_lock);
@@ -413,6 +340,8 @@ esp_err_t esp_vfs_fat_sdmmc_unmount(void)
 
 esp_err_t esp_vfs_fat_sdcard_unmount(const char *base_path, sdmmc_card_t *card)
 {
+    if(!fat_ctx)
+	return ESP_OK;
     pthread_mutex_lock(&unregister_lock);
     fat_ctx = NULL;
     pthread_mutex_unlock(&unregister_lock);

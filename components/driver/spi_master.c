@@ -579,7 +579,7 @@ static void SPI_MASTER_ISR_ATTR spi_intr(void *arg)
 
     assert(spi_hal_usr_is_done(&host->hal));
 
-    /*
+    /*q
      * Help to skip the handling of in-flight transaction, and disable of the interrupt.
      * The esp_intr_enable will be called (b) after new BG request is queued (a) in the task;
      * while esp_intr_disable should be called (c) if we check and found the sending queue is empty (d).
@@ -606,9 +606,9 @@ static void SPI_MASTER_ISR_ATTR spi_intr(void *arg)
         //Release APB frequency lock
         esp_pm_lock_release(bus_attr->pm_lock);
 #endif 
-        if(spihost[HSPI_HOST] == host)
+        if(bus_driver_ctx[HSPI_HOST] == host)
             user_spi_interrupt_done(HSPI_HOST);
-        if(spihost[VSPI_HOST] == host)
+        if(bus_driver_ctx[VSPI_HOST] == host)
             user_spi_interrupt_done(VSPI_HOST);
     }
 
