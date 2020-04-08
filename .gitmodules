@@ -73,7 +73,7 @@
 
 [submodule "components/esp_wifi/lib"]
 	path = components/esp_wifi/lib
-	url = ../../espressif/esp32-wifi-lib.git
+	url = https://www.github.com/espressif/esp32-wifi-lib.git
 
 [submodule "components/spiffs/spiffs"]
 	path = components/spiffs/spiffs
@@ -81,4 +81,4 @@
 
 [submodule "components/tinyusb/tinyusb"]
 	path = components/tinyusb/tinyusb
-	url = ../../espressif/tinyusb.git
+	url = https://www.github.com/espressif/tinyusb.git
