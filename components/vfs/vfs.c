@@ -197,6 +197,9 @@ esp_err_t esp_vfs_unregister(const char* base_path)
     return ESP_ERR_INVALID_STATE;
 }
 
+/*
+ * Does not check whether FD 0-2 should not be used, so commenting out
+
 esp_err_t esp_vfs_register_fd(esp_vfs_id_t vfs_id, int *fd)
 {
     if (vfs_id < 0 || vfs_id >= s_vfs_count || fd == NULL) {
@@ -222,6 +225,8 @@ esp_err_t esp_vfs_register_fd(esp_vfs_id_t vfs_id, int *fd)
 
     return ret;
 }
+
+*/
 
 esp_err_t esp_vfs_unregister_fd(esp_vfs_id_t vfs_id, int fd)
 {
@@ -400,7 +405,7 @@ retry:
     CHECK_AND_CALL(fd_within_vfs, r, vfs, open, path_within_vfs, flags, mode);
     if (fd_within_vfs >= 0) {
         _lock_acquire(&s_fd_table_lock);
-        for (int i = 0; i < MAX_FDS; ++i) {
+        for (int i = strncmp(path, "/dev/uart/", 10) == 0 ? 0 : 3; i < MAX_FDS; ++i) {
             if (s_fd_table[i].vfs_index == -1) {
                 s_fd_table[i].permanent = false;
                 s_fd_table[i].vfs_index = vfs->offset;
