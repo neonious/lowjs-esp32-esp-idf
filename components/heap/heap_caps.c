@@ -22,6 +22,9 @@
 #include "esp_log.h"
 #include "heap_private.h"
 
+/* Defines compile-time configuration macros */
+#include "multi_heap_config.h"
+
 bool alloc_use_fund();
 
 static void *gZeroPtr =
