@@ -35,10 +35,6 @@
 	path = components/mbedtls/mbedtls
 	url = https://www.github.com/espressif/mbedtls.git
 
-[submodule "components/asio/asio"]
-	path = components/asio/asio
-	url = https://www.github.com/espressif/asio.git
-
 [submodule "components/expat/expat"]
 	path = components/expat/expat
 	url = https://www.github.com/libexpat/libexpat.git
@@ -74,10 +70,6 @@
 [submodule "components/esp_wifi/lib"]
 	path = components/esp_wifi/lib
 	url = https://www.github.com/espressif/esp32-wifi-lib.git
-
-[submodule "components/spiffs/spiffs"]
-	path = components/spiffs/spiffs
-	url = https://neonious.com:444/thomas/neon-spiffs
 
 [submodule "components/tinyusb/tinyusb"]
 	path = components/tinyusb/tinyusb
