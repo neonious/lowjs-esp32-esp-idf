@@ -102,14 +102,6 @@ IRAM_ATTR void *heap_caps_malloc( size_t size, uint32_t caps )
     if(size == 0)
         return gZeroPtr;
 
-    if (size > HEAP_SIZE_MAX) {
-        // Avoids int overflow when adding small numbers to size, or
-        // calculating 'end' from start+size, by limiting 'size' to the possible range
-        heap_caps_alloc_failed(size, caps, __func__);
-
-        return NULL;
-    }
-
     if (caps & MALLOC_CAP_EXEC) {
         //MALLOC_CAP_EXEC forces an alloc from IRAM. There is a region which has both this as well as the following
         //caps, but the following caps are not possible for IRAM.  Thus, the combination is impossible and we return
@@ -147,13 +139,13 @@ retry:
                         //This is special, insofar that what we're going to get back is a DRAM address. If so,
                         //we need to 'invert' it (lowest address in DRAM == highest address in IRAM and vice-versa) and
                         //add a pointer to the DRAM equivalent before the address we're going to return.
-                        ret = multi_heap_malloc(heap->heap, size + 4);
+                        void *ret = multi_heap_malloc(heap->heap, size + 4);
                         if (ret != NULL) {
                             return dram_alloc_to_iram_addr(ret, size + 4);
                         }
                     } else {
                         //Just try to alloc, nothing special.
-                        ret = multi_heap_malloc(heap->heap, size);
+                        void *ret = multi_heap_malloc(heap->heap, size);
                         if (ret != NULL) {
                             return ret;
                         }
@@ -335,12 +327,6 @@ IRAM_ATTR void *heap_caps_realloc( void *ptr, size_t size, int caps)
     }
 
     heap_t *heap = find_containing_heap(ptr);
-    if (size > HEAP_SIZE_MAX) {
-        heap_caps_alloc_failed(size, caps, __func__);
-
-        return NULL;
-    }
-
     assert(heap != NULL && "realloc() pointer is outside heap areas");
 
     // are the existing heap's capabilities compatible with the
