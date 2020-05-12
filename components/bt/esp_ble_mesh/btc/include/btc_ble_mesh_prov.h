@@ -20,6 +20,10 @@
 #include "provisioner_prov.h"
 #include "esp_ble_mesh_defs.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef enum {
     BTC_BLE_MESH_ACT_MESH_INIT = 0,
     BTC_BLE_MESH_ACT_PROV_ENABLE,
@@ -99,7 +103,7 @@ typedef union {
         char string[8];
     } input_string;
     struct ble_mesh_set_device_name_args {
-        char name[ESP_BLE_MESH_DEVICE_NAME_MAX_LEN];
+        char name[ESP_BLE_MESH_DEVICE_NAME_MAX_LEN + 1];
     } set_device_name;
     struct ble_mesh_provisioner_read_oob_pub_key_args {
         uint8_t link_idx;
@@ -153,7 +157,7 @@ typedef union {
     } set_primary_elem_addr;
     struct ble_mesh_provisioner_set_node_name_args {
         uint16_t index;
-        char name[ESP_BLE_MESH_NODE_NAME_MAX_LEN];
+        char name[ESP_BLE_MESH_NODE_NAME_MAX_LEN + 1];
     } set_node_name;
     struct ble_mesh_provisioner_add_local_app_key_args {
         uint8_t app_key[16];
@@ -308,5 +312,9 @@ void btc_ble_mesh_model_cb_handler(btc_msg_t *msg);
 
 void btc_ble_mesh_prov_call_handler(btc_msg_t *msg);
 void btc_ble_mesh_prov_cb_handler(btc_msg_t *msg);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _BTC_BLE_MESH_PROV_H_ */

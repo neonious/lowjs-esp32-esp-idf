@@ -325,31 +325,31 @@
       "versions": [
         {
           "linux-amd64": {
-            "sha256": "23c9a50b6e109e845311d697bfe1caae7bc0df092e71669e9848bcecd96be948",
-            "size": 1724360,
-            "url": "https://github.com/espressif/openocd-esp32/releases/download/v0.10.0-esp32-20200309/openocd-esp32-linux64-0.10.0-esp32-20200309.tar.gz"
+            "sha256": "55755f03ed76cbd2fddb4bc2d85327b95e1a5c728bfacb77af08bf26e65a3628",
+            "size": 1728177,
+            "url": "https://github.com/espressif/openocd-esp32/releases/download/v0.10.0-esp32-20200420/openocd-esp32-linux64-0.10.0-esp32-20200420.tar.gz"
           },
           "linux-armel": {
-            "sha256": "04b75498138e6cca9fc0264479dd9f11e60b757ac0d2f14f008f9b54ec624b12",
-            "size": 1774177,
-            "url": "https://github.com/espressif/openocd-esp32/releases/download/v0.10.0-esp32-20200309/openocd-esp32-armel-0.10.0-esp32-20200309.tar.gz"
+            "sha256": "dbe2f78be0f15c5e5ff9ac9e445c9cf6a9a6be31f0038c4e1822960fcd8ad615",
+            "size": 1777775,
+            "url": "https://github.com/espressif/openocd-esp32/releases/download/v0.10.0-esp32-20200420/openocd-esp32-armel-0.10.0-esp32-20200420.tar.gz"
           },
           "macos": {
-            "sha256": "b39ded478181da4ddcdcc5c52c1c73b60610f856eb0f13b494caa750bebc1d78",
-            "size": 1810061,
-            "url": "https://github.com/espressif/openocd-esp32/releases/download/v0.10.0-esp32-20200309/openocd-esp32-macos-0.10.0-esp32-20200309.tar.gz"
+            "sha256": "a5bb0389e355c58f593a460aea2e41f0c07f9f1bb2bc08101914bb37017271c9",
+            "size": 1811349,
+            "url": "https://github.com/espressif/openocd-esp32/releases/download/v0.10.0-esp32-20200420/openocd-esp32-macos-0.10.0-esp32-20200420.tar.gz"
           },
-          "name": "v0.10.0-esp32-20200309",
+          "name": "v0.10.0-esp32-20200420",
           "status": "recommended",
           "win32": {
-            "sha256": "31e2d12843386058ad13d27a5bb69c73ee185c93d76be9e4c03a832a2fdaef47",
-            "size": 2149578,
-            "url": "https://github.com/espressif/openocd-esp32/releases/download/v0.10.0-esp32-20200309/openocd-esp32-win32-0.10.0-esp32-20200309.zip"
+            "sha256": "3d13feca3e7e16b8442069aec8267e6bf12de489a29647df760a1da6c33d7f2e",
+            "size": 2150749,
+            "url": "https://github.com/espressif/openocd-esp32/releases/download/v0.10.0-esp32-20200420/openocd-esp32-win32-0.10.0-esp32-20200420.zip"
           },
           "win64": {
-            "sha256": "31e2d12843386058ad13d27a5bb69c73ee185c93d76be9e4c03a832a2fdaef47",
-            "size": 2149578,
-            "url": "https://github.com/espressif/openocd-esp32/releases/download/v0.10.0-esp32-20200309/openocd-esp32-win32-0.10.0-esp32-20200309.zip"
+            "sha256": "3d13feca3e7e16b8442069aec8267e6bf12de489a29647df760a1da6c33d7f2e",
+            "size": 2150749,
+            "url": "https://github.com/espressif/openocd-esp32/releases/download/v0.10.0-esp32-20200420/openocd-esp32-win32-0.10.0-esp32-20200420.zip"
           }
         }
       ]
@@ -480,6 +480,43 @@
             "sha256": "37e833f3f354f1145503533e776c1bd44ec2e77ff8a2476a1d2039b0b10c78d6",
             "size": 142401,
             "url": "https://dl.espressif.com/dl/ccache-3.7-w64.zip"
+          }
+        }
+      ]
+    },
+    {
+      "description": "dfu-util (Device Firmware Upgrade Utilities)",
+      "export_paths": [
+        [
+          "dfu-util-0.9-win64"
+        ]
+      ],
+      "export_vars": {},
+      "info_url": "http://dfu-util.sourceforge.net/",
+      "install": "never",
+      "license": "GPL-2.0-only",
+      "name": "dfu-util",
+      "platform_overrides": [
+        {
+          "install": "always",
+          "platforms": [
+            "win64"
+          ]
+        }
+      ],
+      "version_cmd": [
+        "dfu-util",
+        "--version"
+      ],
+      "version_regex": "dfu-util ([0-9.]+)",
+      "versions": [
+        {
+          "name": "0.9",
+          "status": "recommended",
+          "win64": {
+            "sha256": "5816d7ec68ef3ac07b5ac9fb9837c57d2efe45b6a80a2f2bbe6b40b1c15c470e",
+            "size": 735635,
+            "url": "https://dl.espressif.com/dl/dfu-util-0.9-win64.zip"
           }
         }
       ]

@@ -560,7 +560,8 @@ static int btc_ble_mesh_output_string_cb(const char *str)
 
     BT_DBG("%s", __func__);
 
-    strncpy(mesh_param.node_prov_output_str.string, str, strlen(str));
+    strncpy(mesh_param.node_prov_output_str.string, str,
+        MIN(strlen(str), sizeof(mesh_param.node_prov_output_str.string)));
 
     ret = btc_ble_mesh_prov_callback(&mesh_param, ESP_BLE_MESH_NODE_PROV_OUTPUT_STRING_EVT);
     return (ret == BT_STATUS_SUCCESS) ? 0 : -1;
@@ -994,7 +995,7 @@ const esp_ble_mesh_comp_t *btc_ble_mesh_comp_get(void)
 
 u16_t btc_ble_mesh_provisioner_get_prov_node_count(void)
 {
-    return bt_mesh_provisioner_get_prov_node_count();
+    return bt_mesh_provisioner_get_node_count();
 }
 
 /* Configuration Models */
@@ -1573,7 +1574,7 @@ void btc_ble_mesh_prov_call_handler(btc_msg_t *msg)
         break;
     case BTC_BLE_MESH_ACT_NODE_RESET:
         BT_DBG("%s, BTC_BLE_MESH_ACT_NODE_RESET", __func__);
-        bt_mesh_reset();
+        bt_mesh_node_reset();
         return;
     case BTC_BLE_MESH_ACT_SET_OOB_PUB_KEY:
         act = ESP_BLE_MESH_NODE_PROV_SET_OOB_PUB_KEY_COMP_EVT;
@@ -1783,7 +1784,7 @@ void btc_ble_mesh_prov_call_handler(btc_msg_t *msg)
         act = ESP_BLE_MESH_PROVISIONER_DELETE_NODE_WITH_ADDR_COMP_EVT;
         param.provisioner_delete_node_with_addr_comp.unicast_addr = arg->delete_node_with_addr.unicast_addr;
         param.provisioner_delete_node_with_addr_comp.err_code =
-            bt_mesh_provisioner_delete_node_with_addr(arg->delete_node_with_addr.unicast_addr);
+            bt_mesh_provisioner_delete_node_with_node_addr(arg->delete_node_with_addr.unicast_addr);
         break;
 #endif /* CONFIG_BLE_MESH_PROVISIONER */
 #if CONFIG_BLE_MESH_FAST_PROV

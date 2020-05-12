@@ -98,7 +98,6 @@
     variables:
       - $BOT_TRIGGER_WITH_LABEL == null
       - $BOT_LABEL_CUSTOM_TEST
-      - $BOT_LABEL_EXAMPLE_TEST
   variables:
     TEST_FW_PATH: "$CI_PROJECT_DIR/tools/tiny-test-fw"
     TEST_CASE_PATH: "$CI_PROJECT_DIR/tools/test_apps"
@@ -111,8 +110,7 @@
   stage: target_test
   dependencies:
     - assign_test
-    - build_esp_idf_tests_make
-    - build_esp_idf_tests_cmake
+    - build_esp_idf_tests_cmake_esp32
   only:
     refs:
       - master
@@ -208,7 +206,7 @@ test_weekend_network:
 
 example_test_001A:
   extends: .example_test_template
-  parallel: 3
+  parallel: 5
   tags:
     - ESP32
     - Example_WIFI
@@ -291,7 +289,7 @@ example_test_009:
   artifacts:
       when: always
       paths:
-        - $CI_PROJECT_DIR/examples/get-started/hello_world/*.log
+        - $CI_PROJECT_DIR/examples/*/*/*.log
       expire_in: 1 week
   variables:
     SETUP_TOOLS: "1"
@@ -307,12 +305,25 @@ test_app_test_001:
   tags:
     - ESP32
     - test_jtag_arm
+  artifacts:
+      when: always
+      paths:
+        - $CI_PROJECT_DIR/tools/test_apps/system/gdb_loadable_elf/*.log
+      expire_in: 1 week
+  variables:
+    SETUP_TOOLS: "1"
 
 test_app_test_002:
   extends: .test_app_template
   tags:
     - ESP32
     - Example_WIFI
+
+test_app_test_003:
+  extends: .test_app_template
+  tags:
+    - ESP32
+    - Example_PPP
 
 example_test_011:
   extends: .example_debug_template
@@ -334,9 +345,15 @@ example_test_012:
     - ESP32
     - Example_RMT_IR_PROTOCOLS
 
+example_test_013:
+  extends: .example_test_template
+  tags:
+    - ESP32
+    - UT_T1_SDMODE
+
 UT_001:
   extends: .unit_test_template
-  parallel: 37
+  parallel: 38
   tags:
     - ESP32_IDF
     - UT_T1_1
@@ -345,7 +362,7 @@ UT_001:
 
 UT_002:
   extends: .unit_test_template
-  parallel: 14
+  parallel: 15
   tags:
     - ESP32_IDF
     - UT_T1_1
@@ -419,7 +436,7 @@ UT_017:
 
 UT_018:
   extends: .unit_test_template
-  parallel: 4
+  parallel: 5
   tags:
     - ESP32_IDF
     - UT_T1_1
@@ -481,6 +498,9 @@ UT_034:
 
 .unit_test_s2_template:
   extends: .unit_test_template
+  dependencies:
+    - assign_test
+    - build_esp_idf_tests_cmake_esp32s2
   only:
     refs:
       # Due to lack of runners, the tests are only done by manual trigger
@@ -490,12 +510,13 @@ UT_034:
       - triggers
       - schedules
     variables:
-      - $BOT_TRIGGER_WITH_LABEL == null
+      # Due to lack of runners, S2 tests will only be triggered with label (@bot test will not trigger)
+      # - $BOT_TRIGGER_WITH_LABEL == null
       - $BOT_LABEL_UNIT_TEST_S2
 
 UT_035:
   extends: .unit_test_s2_template
-  parallel: 32
+  parallel: 34
   tags:
     - ESP32S2_IDF
     - UT_T1_1

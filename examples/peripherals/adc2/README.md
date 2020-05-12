@@ -1,3 +1,6 @@
+| Supported Targets | ESP32 |
+| ----------------- | ----- |
+
 # ADC2 Example
 
 (See the README.md file in the upper level 'examples' directory for more information about examples.)
@@ -27,8 +30,6 @@ We use ADC1_CHANNEL_7 (GPIO18) and DAC_CHANNEL_1 (GPIO17) by default, you need t
 ```
 idf.py menuconfig
 ```
-
-* Set serial port under Serial Flasher Options.
 * Set ADC2 and DAC channel in "Example Configuration"
 
 ### Build and Flash

@@ -1,3 +1,6 @@
+| Supported Targets | ESP32 |
+| ----------------- | ----- |
+
 # Flash Encryption
 
 The example checks if the flash encryption feature is enabled/disabled and if enabled prints the flash encryption mode (DEVELOPMENT / RELEASE) and FLASH_CRYPT_CNT eFuse value.
@@ -13,8 +16,6 @@ The example also demonstrates writing and reading encrypted partitions in flash.
 ```
 idf.py menuconfig
 ```
-
-* Set serial port under Serial Flasher Options.
 
 * Enable the flash encryption mode (Development or Release) under Security Features. Default usage mode is Development (recommended during test and development phase).
 

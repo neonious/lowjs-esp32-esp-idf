@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Setup script to configure an MSYS2 environment for ESP-IDF.
 #
@@ -34,7 +34,7 @@ set -e
 pacman --noconfirm -Syu # This step may require the terminal to be closed and restarted
 
 pacman --noconfirm -S --needed gettext-devel gcc git make ncurses-devel flex bison gperf vim \
-       mingw-w64-i686-python-pip mingw-w64-i686-python-cryptography unzip winpty
+       mingw-w64-i686-python-pip mingw-w64-i686-python-cryptography unzip winpty mingw-w64-i686-gcc
 
 # if IDF_PATH is set, install requirements now as well
 if [ -n "$IDF_PATH" ]; then

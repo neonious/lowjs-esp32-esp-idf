@@ -1,3 +1,6 @@
+| Supported Targets | ESP32 |
+| ----------------- | ----- |
+
 # BLE Mesh example
 
 (See the README.md file in the upper level 'examples' directory for more information about examples.)
@@ -22,8 +25,6 @@ To test this demo, any BLE mesh provisioner app can be used.
 ```
 idf.py menuconfig
 ```
-
-* Set serial port under Serial Flasher Options.
 
 * Select 'Enable BLE mesh functionality' under 'Component config > Bluetooth > Enable NimBLE host stack'.
 

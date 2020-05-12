@@ -15,6 +15,7 @@ else()
         "cache_utils.c"
         "flash_mmap.c"
         "flash_ops.c"
+        "${IDF_TARGET}/flash_ops_${IDF_TARGET}.c"
     )
     set(srcs
         "partition.c")
@@ -29,6 +30,7 @@ else()
         "spi_flash_chip_drivers.c"
         "spi_flash_chip_generic.c"
         "spi_flash_chip_issi.c"
+        "spi_flash_chip_mxic.c"
         "spi_flash_chip_gd.c"
         "memspi_host_driver.c")
 

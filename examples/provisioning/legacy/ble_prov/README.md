@@ -1,3 +1,6 @@
+| Supported Targets | ESP32 |
+| ----------------- | ----- |
+
 # BLE based Provisioning Example (Legacy)
 
 > Note: It is recommended to use the new `wifi_prov_mgr` example which is based on the simpler `wifi_provisioning` APIs. Check this example only if you wish to use lower level provisioning and protocomm APIs and want more control over the handlers.
@@ -51,8 +54,6 @@ There are various applications, specific to Windows and macOS platform which can
 ```
 idf.py menuconfig
 ```
-
-* Set serial port under Serial Flasher Options.
 
 * Under Example Configuration set the following :
     * Security Version (default 1)

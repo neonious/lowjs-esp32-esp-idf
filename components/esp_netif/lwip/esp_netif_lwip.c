@@ -627,8 +627,11 @@ static esp_err_t esp_netif_start_api(esp_netif_api_msg_t *msg)
             if (p_netif != NULL && netif_is_up(p_netif)) {
                 esp_netif_ip_info_t *default_ip = esp_netif->ip_info;
                 ip4_addr_t lwip_ip;
+                ip4_addr_t lwip_netmask;
                 memcpy(&lwip_ip, &default_ip->ip, sizeof(struct ip4_addr));
+                memcpy(&lwip_netmask, &default_ip->netmask, sizeof(struct ip4_addr));
                 dhcps_set_new_lease_cb(esp_netif_dhcps_cb);
+                dhcps_set_option_info(SUBNET_MASK, (void*)&lwip_netmask, sizeof(lwip_netmask));
                 dhcps_start(p_netif, lwip_ip);
                 esp_netif->dhcps_status = ESP_NETIF_DHCP_STARTED;
                 ESP_LOGD(TAG, "DHCP server started successfully");
@@ -642,6 +645,20 @@ static esp_err_t esp_netif_start_api(esp_netif_api_msg_t *msg)
         }
         ESP_LOGD(TAG, "DHCP server already started");
         return ESP_ERR_ESP_NETIF_DHCP_ALREADY_STARTED;
+    } else if (esp_netif->flags & ESP_NETIF_DHCP_CLIENT) {
+        if (esp_netif->dhcpc_status != ESP_NETIF_DHCP_STARTED) {
+            if (p_netif != NULL) {
+                struct dhcp *dhcp_data = NULL;
+                dhcp_data = netif_dhcp_data(p_netif);
+                if (dhcp_data == NULL) {
+                    dhcp_data = (struct dhcp *)malloc(sizeof(struct dhcp));
+                    if (dhcp_data == NULL) {
+                        return ESP_ERR_NO_MEM;
+                    }
+                    dhcp_set_struct(p_netif, dhcp_data);
+                }
+            }
+        }
     }
 
     esp_netif_update_default_netif(esp_netif, ESP_NETIF_STARTED);
@@ -976,8 +993,11 @@ static esp_err_t esp_netif_dhcps_start_api(esp_netif_api_msg_t *msg)
     if (p_netif != NULL && netif_is_up(p_netif)) {
         esp_netif_ip_info_t *default_ip = esp_netif->ip_info;
         ip4_addr_t lwip_ip;
+        ip4_addr_t lwip_netmask;
         memcpy(&lwip_ip, &default_ip->ip, sizeof(struct ip4_addr));
+        memcpy(&lwip_netmask, &default_ip->netmask, sizeof(struct ip4_addr));
         dhcps_set_new_lease_cb(esp_netif_dhcps_cb);
+        dhcps_set_option_info(SUBNET_MASK, (void*)&lwip_netmask, sizeof(lwip_netmask));
         dhcps_start(p_netif, lwip_ip);
         esp_netif->dhcps_status = ESP_NETIF_DHCP_STARTED;
         ESP_LOGD(TAG, "DHCP server started successfully");
@@ -1145,8 +1165,13 @@ bool esp_netif_is_netif_up(esp_netif_t *esp_netif)
 {
     ESP_LOGV(TAG, "%s esp_netif:%p", __func__, esp_netif);
 
-    if (esp_netif != NULL && esp_netif->lwip_netif != NULL && netif_is_up(esp_netif->lwip_netif)) {
-        return true;
+    if (esp_netif != NULL && esp_netif->lwip_netif != NULL) {
+        if (esp_netif->is_ppp_netif) {
+            // ppp implementation uses netif_set_link_up/down to update link state
+            return netif_is_link_up(esp_netif->lwip_netif);
+        }
+        // esp-netif handlers and drivers take care to set_netif_up/down on link state update
+        return netif_is_up(esp_netif->lwip_netif);
     } else {
         return false;
     }
@@ -1541,6 +1566,7 @@ esp_err_t esp_netif_dhcps_option(esp_netif_t *esp_netif, esp_netif_dhcp_option_m
                 *(uint32_t *)opt_val = *(uint32_t *)opt_info;
                 break;
             }
+            case ESP_NETIF_SUBNET_MASK:
             case REQUESTED_IP_ADDRESS: {
                 memcpy(opt_val, opt_info, opt_len);
                 break;
@@ -1576,6 +1602,10 @@ esp_err_t esp_netif_dhcps_option(esp_netif_t *esp_netif, esp_netif_dhcp_option_m
                 } else {
                     *(uint32_t *)opt_info = DHCPS_LEASE_TIME_DEF;
                 }
+                break;
+            }
+            case ESP_NETIF_SUBNET_MASK: {
+                memcpy(opt_info, opt_val, opt_len);
                 break;
             }
             case REQUESTED_IP_ADDRESS: {
@@ -1647,15 +1677,14 @@ esp_err_t esp_netif_dhcpc_option(esp_netif_t *esp_netif, esp_netif_dhcp_option_m
     if (esp_netif == NULL || esp_netif->lwip_netif == NULL) {
         return ESP_ERR_ESP_NETIF_IF_NOT_READY;
     }
-
     struct dhcp *dhcp = netif_dhcp_data(esp_netif->lwip_netif);
-    if (dhcp == NULL) {
-        return ESP_ERR_ESP_NETIF_DHCP_ALREADY_STOPPED;
-    }
-    if (opt_val == NULL) {
+     if (dhcp == NULL || opt_val == NULL) {
         return ESP_ERR_ESP_NETIF_INVALID_PARAMS;
     }
     if (opt_op == ESP_NETIF_OP_GET) {
+        if (esp_netif->dhcpc_status == ESP_NETIF_DHCP_STOPPED) {
+            return ESP_ERR_ESP_NETIF_DHCP_ALREADY_STOPPED;
+        }
         switch (opt_id) {
             case ESP_NETIF_IP_REQUEST_RETRY_TIME:
                 if (opt_len == sizeof(dhcp->tries)) {
@@ -1667,6 +1696,9 @@ esp_err_t esp_netif_dhcpc_option(esp_netif_t *esp_netif, esp_netif_dhcp_option_m
                 break;
         }
     } else if (opt_op == ESP_NETIF_OP_SET) {
+        if (esp_netif->dhcpc_status == ESP_NETIF_DHCP_STARTED) {
+            return ESP_ERR_ESP_NETIF_DHCP_ALREADY_STARTED;
+        }
         switch (opt_id) {
             case ESP_NETIF_IP_REQUEST_RETRY_TIME:
                 if (opt_len == sizeof(dhcp->tries)) {

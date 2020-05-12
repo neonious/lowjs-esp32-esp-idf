@@ -141,7 +141,7 @@ There is couple of tips, how you can make your documentation even better and mor
 Linking Examples
 ----------------
 
-When linking to examples on GitHub do not use absolute / hardcoded URLs. Instead, use docutils custom roles that will generate links for you. These auto-generated links point to the tree or blob for the git commit ID (or tag) of the repository. This is needed to ensure that links do not get broken when files in master branch are moved around or deleted.
+When linking to examples on GitHub do not use absolute / hardcoded URLs. Instead, use docutils custom roles that will generate links for you. These auto-generated links point to the tree or blob for the git commit ID (or tag) of the repository. This is needed to ensure that links do not get broken when files in master branch are moved around or deleted. The roles will transparently handle files that are located in submodules and will link to the submodule's repository with the correct commit ID.
 
 The following roles are provided:
 
@@ -309,7 +309,7 @@ If you need to exclude content inside a list or bullet points then this should b
 .. code-block:: none
 
     .. list::
-    
+
         :esp32: - ESP32 specific content
         :esp32s2: - ESP32 S2 specific content
         - Common bullet point
@@ -488,6 +488,32 @@ Choices for language (``-l``) are ``en`` and ``zh_CN``. Choices for target (``-t
 
 Build documentation will be placed in ``_build/<language>/<target>/html`` folder. To see it, open the ``index.html`` inside this directory in a web browser.
 
+
+Building PDF
+""""""""""""
+
+It is also possible to build latex files and a PDF of the documentation using ``build_docs.py``. To do this the following Latex packages are required to be installed:
+
+ * latexmk
+ * texlive-latex-recommended
+ * texlive-fonts-recommended
+ * texlive-xetex
+
+The following fonts are also required to be installed:
+
+ * Freefont Serif, Sans and Mono OpenType fonts, available as the package ``fonts-freefont-otf`` on Ubuntu
+ * Lmodern, available as the package ``fonts-lmodern`` on Ubuntu
+ * Fandol, can be downloaded from `here <https://ctan.org/tex-archive/fonts/fandol>`_
+
+Now you can build the PDF for a target by invoking::
+
+    ./build_docs.py -bs latex -l en -t esp32 build
+
+Or alternatively build both html and PDF::
+
+    ./build_docs.py -bs html latex -l en -t esp32 build
+
+Latex files and the PDF will be placed in ``_build/<language>/<target>/latex`` folder.
 
 Wrap up
 -------

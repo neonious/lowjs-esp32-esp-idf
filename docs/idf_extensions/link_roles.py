@@ -6,6 +6,8 @@ import re
 import os
 import subprocess
 from docutils import nodes
+from collections import namedtuple
+from sphinx.transforms.post_transforms import SphinxPostTransform
 
 
 def get_github_rev():
@@ -21,6 +23,30 @@ def get_github_rev():
     return path
 
 
+# Creates a dict of all submodules with the format {submodule_path : (url relative to git root), commit)}
+def get_submodules():
+    git_root = subprocess.check_output(['git', 'rev-parse', '--show-toplevel']).strip().decode('utf-8')
+    gitmodules_file = os.path.join(git_root, '.gitmodules')
+
+    submodules = subprocess.check_output(['git', 'submodule', 'status']).strip().decode('utf-8').split('\n')
+
+    submodule_dict = {}
+    Submodule = namedtuple('Submodule', 'url rev')
+    for sub in submodules:
+        sub_info = sub.lstrip().split(' ')
+
+        # Get short hash, 7 digits
+        rev = sub_info[0].lstrip('-')[0:7]
+        path = sub_info[1].lstrip('./')
+
+        config_key_arg = "submodule.{}.url".format(path)
+        rel_url = subprocess.check_output(['git', 'config', '--file', gitmodules_file, '--get', config_key_arg]).decode('utf-8').lstrip('./').rstrip('\n')
+
+        submodule_dict[path] = Submodule(rel_url, rev)
+
+    return submodule_dict
+
+
 def url_join(*url_parts):
     """ Make a URL out of multiple components, assume first part is the https:// part and
     anything else is a path component """
@@ -29,36 +55,24 @@ def url_join(*url_parts):
     return result
 
 
-def setup(app):
-    rev = get_github_rev()
-
-    # links to files or folders on the GitHub
-    app.add_role('idf', github_link('tree', rev, '/', app.config))
-    app.add_role('idf_file', github_link('blob', rev, '/', app.config))
-    app.add_role('idf_raw', github_link('raw', rev, '/', app.config))
-    app.add_role('component', github_link('tree', rev, '/components/', app.config))
-    app.add_role('component_file', github_link('blob', rev, '/components/', app.config))
-    app.add_role('component_raw', github_link('raw', rev, '/components/', app.config))
-    app.add_role('example', github_link('tree', rev, '/examples/', app.config))
-    app.add_role('example_file', github_link('blob', rev, '/examples/', app.config))
-    app.add_role('example_raw', github_link('raw', rev, '/examples/', app.config))
-
-    # link to the current documentation file in specific language version
-    app.add_role('link_to_translation', link_to_translation(app.config))
-
-    return {'parallel_read_safe': True, 'parallel_write_safe': True, 'version': '0.3'}
-
-
-def github_link(link_type, rev, root_path, app_config):
+def github_link(link_type, idf_rev, submods, root_path, app_config):
     def role(name, rawtext, text, lineno, inliner, options={}, content=[]):
         msgs = []
+        BASE_URL = 'https://github.com/'
+        IDF_REPO = "espressif/esp-idf"
 
         def warning(msg):
             system_msg = inliner.reporter.warning(msg)
             system_msg.line = lineno
             msgs.append(system_msg)
 
-        BASE_URL = 'https://github.com/espressif/esp-idf'
+        # Redirects to submodule repo if path is a submodule, else default to IDF repo
+        def redirect_submodule(path, submods, rev):
+            for key, value in submods.items():
+                if path.lstrip('/').startswith(key):
+                    return value.url.replace('.git', ''), value.rev, re.sub('^/{}/'.format(key), '', path)
+
+            return IDF_REPO, rev, path
 
         # search for a named link (:label<path>) with descriptive label vs a plain URL
         m = re.search(r'(.*)\s*<(.*)>', text)
@@ -71,8 +85,11 @@ def github_link(link_type, rev, root_path, app_config):
 
         rel_path = root_path + link
         abs_path = os.path.join(app_config.idf_path, rel_path.lstrip('/'))
+
+        repo, repo_rev, rel_path = redirect_submodule(rel_path, submods, idf_rev)
+
         line_no = None
-        url = url_join(BASE_URL, link_type, rev, rel_path)
+        url = url_join(BASE_URL, repo, link_type, repo_rev, rel_path)
 
         if '#L' in abs_path:
             # drop any URL line number from the file, line numbers take the form #Lnnn or #Lnnn-Lnnn for a range
@@ -115,15 +132,58 @@ def github_link(link_type, rev, root_path, app_config):
     return role
 
 
-def link_to_translation(config):
-    def role(name, rawtext, text, lineno, inliner, options={}, content=[]):
-        (language, link_text) = text.split(':')
-        docname = inliner.document.settings.env.docname
-        doc_path = inliner.document.settings.env.doc2path(docname, None, None)
-        return_path = '../' * doc_path.count('/')  # path back to the root from 'docname'
-        # then take off 3 more paths for language/release/targetname and build the new URL
-        url = "{}.html".format(os.path.join(return_path, '../../..', language, config.release,
-                                            config.idf_target, docname))
-        node = nodes.reference(rawtext, link_text, refuri=url, **options)
-        return [node], []
-    return role
+class translation_link(nodes.Element):
+    """Node for "link_to_translation" role."""
+
+
+# Linking to translation is done at the "writing" stage to avoid issues with the info being cached between builders
+def link_to_translation(name, rawtext, text, lineno, inliner, options={}, content=[]):
+    node = translation_link()
+    node['expr'] = (rawtext, text, options)
+    return [node], []
+
+
+class TranslationLinkNodeTransform(SphinxPostTransform):
+    # Transform needs to happen early to ensure the new reference node is also transformed
+    default_priority = 0
+
+    def run(self, **kwargs):
+
+        # Only output relative links if building HTML
+        for node in self.document.traverse(translation_link):
+            if 'html' in self.app.builder.name:
+                rawtext, text, options = node['expr']
+                (language, link_text) = text.split(':')
+                env = self.document.settings.env
+                docname = env.docname
+                doc_path = env.doc2path(docname, None, None)
+                return_path = '../' * doc_path.count('/')  # path back to the root from 'docname'
+                # then take off 3 more paths for language/release/targetname and build the new URL
+                url = "{}.html".format(os.path.join(return_path, '../../..', language, env.config.release,
+                                                    env.config.idf_target, docname))
+                node.replace_self(nodes.reference(rawtext, link_text, refuri=url, **options))
+            else:
+                node.replace_self([])
+
+
+def setup(app):
+    rev = get_github_rev()
+    submods = get_submodules()
+
+    # links to files or folders on the GitHub
+    app.add_role('idf', github_link('tree', rev, submods, '/', app.config))
+    app.add_role('idf_file', github_link('blob', rev, submods, '/', app.config))
+    app.add_role('idf_raw', github_link('raw', rev, submods, '/', app.config))
+    app.add_role('component', github_link('tree', rev, submods, '/components/', app.config))
+    app.add_role('component_file', github_link('blob', rev, submods, '/components/', app.config))
+    app.add_role('component_raw', github_link('raw', rev, submods, '/components/', app.config))
+    app.add_role('example', github_link('tree', rev, submods, '/examples/', app.config))
+    app.add_role('example_file', github_link('blob', rev, submods, '/examples/', app.config))
+    app.add_role('example_raw', github_link('raw', rev, submods, '/examples/', app.config))
+
+    # link to the current documentation file in specific language version
+    app.add_role('link_to_translation', link_to_translation)
+    app.add_node(translation_link)
+    app.add_post_transform(TranslationLinkNodeTransform)
+
+    return {'parallel_read_safe': True, 'parallel_write_safe': True, 'version': '0.5'}

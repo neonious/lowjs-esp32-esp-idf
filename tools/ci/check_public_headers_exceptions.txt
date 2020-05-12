@@ -39,6 +39,7 @@ components/vfs/include/sys/dirent.h
 components/esp_wifi/esp32/include/phy_init_data.h
 
 components/spi_flash/include/spi_flash_chip_issi.h
+components/spi_flash/include/spi_flash_chip_mxic.h
 components/spi_flash/include/spi_flash_chip_gd.h
 components/spi_flash/include/memspi_host_driver.h
 components/spi_flash/include/spi_flash_chip_driver.h
@@ -71,10 +72,6 @@ components/expat/
 
 components/fatfs/vfs/vfs_fat_internal.h
 components/fatfs/src/ffconf.h
-
-components/freemodbus/common/include/esp_modbus_common.h
-components/freemodbus/common/include/esp_modbus_master.h
-components/freemodbus/common/include/esp_modbus_slave.h
 
 components/idf_test/include/idf_performance.h
 

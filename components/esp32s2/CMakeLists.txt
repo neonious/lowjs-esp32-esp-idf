@@ -12,6 +12,7 @@ else()
     # Regular app build
 
     set(srcs "cache_err_int.c"
+             "memprot.c"
              "clk.c"
              "cpu_start.c"
              "crosscore_int.c"
@@ -25,7 +26,8 @@ else()
              "spiram_psram.c"
              "system_api_esp32s2.c"
              "esp_crypto_lock.c"
-             "esp_hmac.c")
+             "esp_hmac.c"
+             "esp_ds.c")
 
     set(include_dirs "include")
 

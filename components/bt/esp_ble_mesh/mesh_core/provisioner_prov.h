@@ -18,6 +18,10 @@
 #include "mesh_main.h"
 #include "mesh_bearer_adapt.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #if !CONFIG_BLE_MESH_PROVISIONER
 
 #define CONFIG_BLE_MESH_PBA_SAME_TIME   0
@@ -332,6 +336,18 @@ u16_t bt_mesh_provisioner_get_primary_elem_addr(void);
 int bt_mesh_provisioner_set_primary_elem_addr(u16_t addr);
 
 /**
+ * @brief This function is used to update next allocated address by Provisioner.
+ *
+ * @note  This function is used for mesh internal test.
+ *
+ * @param[in] unicast_addr: unicast address of the node
+ * @param[in] element_num:  element count of the node
+ *
+ * @return Zero - success, otherwise - fail
+ */
+int bt_mesh_test_provisioner_update_alloc_addr(u16_t unicast_addr, u16_t element_num);
+
+/**
  * @brief This function is called to input number/string out-put by unprovisioned device.
  *
  * @param[in] idx       The provisioning link index
@@ -412,5 +428,9 @@ u8_t bt_mesh_set_fast_prov_unicast_addr_range(u16_t min, u16_t max);
  * @return None
  */
 void bt_mesh_set_fast_prov_flags_iv_index(u8_t flags, u32_t iv_index);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _PROVISIONER_PROV_H_ */
