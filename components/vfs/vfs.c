@@ -423,15 +423,13 @@ retry:
     }
 
     // Static files
-    if(vfs->path_prefix_len && memcmp(path, "/fs/", 4) == 0)
+    if(__errno_r(r) == ENOENT && vfs->path_prefix_len && memcmp(path, "/fs/", 4) == 0)
         for (size_t i = 0; i < s_vfs_count; ++i)
         {
             vfs = s_vfs[i];
             if(!vfs->path_prefix_len)
                 goto retry;
         }
-
-    __errno_r(r) = ENOENT;
     return -1;
 }
 
