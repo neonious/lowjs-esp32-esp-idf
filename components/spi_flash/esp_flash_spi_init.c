@@ -120,7 +120,7 @@ esp_err_t spi_bus_add_flash_device(esp_flash_t **out_chip, const esp_flash_spi_d
     esp_err_t ret = ESP_OK;
 
     uint32_t caps = MALLOC_CAP_DEFAULT;
-    if (config->host_id == SPI_HOST) caps = MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT;
+	caps = MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT;
 
     chip = (esp_flash_t*)heap_caps_malloc(sizeof(esp_flash_t), caps);
     if (!chip) {
@@ -147,6 +147,7 @@ esp_err_t spi_bus_add_flash_device(esp_flash_t **out_chip, const esp_flash_spi_d
 
     int dev_id;
     esp_err_t err = esp_flash_init_os_functions(chip, config->host_id, &dev_id);
+
     if (err == ESP_ERR_NOT_SUPPORTED) {
         ESP_LOGE(TAG, "Init os functions failed! No free CS.");
     } else if (err == ESP_ERR_INVALID_ARG) {
