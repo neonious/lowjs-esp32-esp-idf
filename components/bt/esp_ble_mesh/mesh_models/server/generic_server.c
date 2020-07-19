@@ -8,13 +8,13 @@
 
 #include <errno.h>
 
+#include "btc_ble_mesh_generic_model.h"
+
 #include "access.h"
 #include "transport.h"
 #include "model_opcode.h"
 #include "state_transition.h"
 #include "device_property.h"
-
-#include "btc_ble_mesh_generic_model.h"
 
 static bt_mesh_mutex_t generic_server_lock;
 
@@ -1191,7 +1191,7 @@ static void gen_power_default_set(struct bt_mesh_model *model,
     /* Callback the received message to the application layer */
     if (srv->rsp_ctrl.set_auto_rsp == BLE_MESH_SERVER_RSP_BY_APP) {
         bt_mesh_gen_server_recv_set_msg_t set = {
-            .power_default_set.power = power, /* Just callback the actual recived value */
+            .power_default_set.power = power, /* Just callback the actual received value */
         };
         bt_mesh_generic_server_cb_evt_to_btc(
             BTC_BLE_MESH_EVT_GENERIC_SERVER_RECV_SET_MSG, model, ctx, (const u8_t *)&set, sizeof(set));
@@ -2193,6 +2193,7 @@ static void gen_client_prop_get(struct bt_mesh_model *model,
         total_len += sizeof(u16_t);
         if (total_len > MIN(BLE_MESH_TX_SDU_MAX, BLE_MESH_SERVER_RSP_MAX_LEN)) {
             /* Add this in case the message is too long */
+            BT_WARN("Too large generic client properties status");
             break;
         }
         net_buf_simple_add_le16(sdu, srv->property_ids[i]);
@@ -2213,7 +2214,7 @@ const struct bt_mesh_model_op gen_onoff_srv_op[] = {
     BLE_MESH_MODEL_OP_END,
 };
 
-/* Mapping of message handlers for Generic Levl Server (0x1002) */
+/* Mapping of message handlers for Generic Level Server (0x1002) */
 const struct bt_mesh_model_op gen_level_srv_op[] = {
     { BLE_MESH_MODEL_OP_GEN_LEVEL_GET,       0, gen_level_get },
     { BLE_MESH_MODEL_OP_GEN_LEVEL_SET,       3, gen_level_set },

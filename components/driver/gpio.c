@@ -28,6 +28,7 @@
 #include "soc/gpio_periph.h"
 #include "esp_log.h"
 #include "hal/gpio_hal.h"
+#include "esp_rom_gpio.h"
 
 static const char *GPIO_TAG = "gpio";
 #define GPIO_CHECK(a, str, ret_val) \
@@ -192,7 +193,7 @@ static esp_err_t gpio_output_enable(gpio_num_t gpio_num)
 {
     GPIO_CHECK(GPIO_IS_VALID_OUTPUT_GPIO(gpio_num), "GPIO output gpio_num error", ESP_ERR_INVALID_ARG);
     gpio_hal_output_enable(gpio_context.gpio_hal, gpio_num);
-    gpio_matrix_out(gpio_num, SIG_GPIO_OUT_IDX, false, false);
+    esp_rom_gpio_connect_out_signal(gpio_num, SIG_GPIO_OUT_IDX, false, false);
     return ESP_OK;
 }
 
@@ -536,11 +537,10 @@ esp_err_t gpio_wakeup_enable(gpio_num_t gpio_num, gpio_int_type_t intr_type)
     if ((intr_type == GPIO_INTR_LOW_LEVEL) || (intr_type == GPIO_INTR_HIGH_LEVEL)) {
         if (rtc_gpio_is_valid_gpio(gpio_num)) {
             ret = rtc_gpio_wakeup_enable(gpio_num, intr_type);
-        } else {
-            portENTER_CRITICAL(&gpio_context.gpio_spinlock);
-            gpio_hal_wakeup_enable(gpio_context.gpio_hal, gpio_num, intr_type);
-            portEXIT_CRITICAL(&gpio_context.gpio_spinlock);
         }
+        portENTER_CRITICAL(&gpio_context.gpio_spinlock);
+        gpio_hal_wakeup_enable(gpio_context.gpio_hal, gpio_num, intr_type);
+        portEXIT_CRITICAL(&gpio_context.gpio_spinlock);
     } else {
         ESP_LOGE(GPIO_TAG, "GPIO wakeup only supports level mode, but edge mode set. gpio_num:%u", gpio_num);
         ret = ESP_ERR_INVALID_ARG;
@@ -556,11 +556,10 @@ esp_err_t gpio_wakeup_disable(gpio_num_t gpio_num)
 
     if (rtc_gpio_is_valid_gpio(gpio_num)) {
         ret = rtc_gpio_wakeup_disable(gpio_num);
-    } else {
-        portENTER_CRITICAL(&gpio_context.gpio_spinlock);
-        gpio_hal_wakeup_disable(gpio_context.gpio_hal, gpio_num);
-        portEXIT_CRITICAL(&gpio_context.gpio_spinlock);
     }
+    portENTER_CRITICAL(&gpio_context.gpio_spinlock);
+    gpio_hal_wakeup_disable(gpio_context.gpio_hal, gpio_num);
+    portEXIT_CRITICAL(&gpio_context.gpio_spinlock);
     return ret;
 }
 

@@ -15,10 +15,16 @@
 #include <string.h>
 #include <errno.h>
 
-#include "freertos/FreeRTOS.h"
-#include "freertos/semphr.h"
+#include "btc_ble_mesh_prov.h"
+#include "btc_ble_mesh_config_model.h"
+#include "btc_ble_mesh_health_model.h"
+#include "btc_ble_mesh_generic_model.h"
+#include "btc_ble_mesh_time_scene_model.h"
+#include "btc_ble_mesh_sensor_model.h"
+#include "btc_ble_mesh_lighting_model.h"
 
 #include "adv.h"
+#include "mesh_kernel.h"
 #include "mesh_proxy.h"
 #include "mesh.h"
 #include "access.h"
@@ -38,16 +44,8 @@
 #include "time_scene_client.h"
 #include "client_common.h"
 #include "state_binding.h"
+#include "local_operation.h"
 
-#include "btc_ble_mesh_prov.h"
-#include "btc_ble_mesh_config_model.h"
-#include "btc_ble_mesh_health_model.h"
-#include "btc_ble_mesh_generic_model.h"
-#include "btc_ble_mesh_time_scene_model.h"
-#include "btc_ble_mesh_sensor_model.h"
-#include "btc_ble_mesh_lighting_model.h"
-
-#include "esp_ble_mesh_defs.h"
 #include "esp_ble_mesh_common_api.h"
 #include "esp_ble_mesh_provisioning_api.h"
 #include "esp_ble_mesh_networking_api.h"
@@ -784,6 +782,20 @@ esp_ble_mesh_node_t *btc_ble_mesh_provisioner_get_node_with_addr(uint16_t unicas
     return (esp_ble_mesh_node_t *)bt_mesh_provisioner_get_node_with_addr(unicast_addr);
 }
 
+esp_ble_mesh_node_t *btc_ble_mesh_provisioner_get_node_with_name(const char *name)
+{
+    return (esp_ble_mesh_node_t *)bt_mesh_provisioner_get_node_with_name(name);
+}
+
+u16_t btc_ble_mesh_provisioner_get_prov_node_count(void)
+{
+    return bt_mesh_provisioner_get_node_count();
+}
+
+const esp_ble_mesh_node_t **btc_ble_mesh_provisioner_get_node_table_entry(void)
+{
+    return (const esp_ble_mesh_node_t **)bt_mesh_provisioner_get_node_table_entry();
+}
 #endif /* CONFIG_BLE_MESH_PROVISIONER */
 
 static void btc_ble_mesh_heartbeat_msg_recv_cb(u8_t hops, u16_t feature)
@@ -991,11 +1003,6 @@ esp_ble_mesh_model_t *btc_ble_mesh_model_find(const esp_ble_mesh_elem_t *elem, u
 const esp_ble_mesh_comp_t *btc_ble_mesh_comp_get(void)
 {
     return (const esp_ble_mesh_comp_t *)bt_mesh_comp_get();
-}
-
-u16_t btc_ble_mesh_provisioner_get_prov_node_count(void)
-{
-    return bt_mesh_provisioner_get_node_count();
 }
 
 /* Configuration Models */
@@ -1901,6 +1908,30 @@ void btc_ble_mesh_prov_call_handler(btc_msg_t *msg)
             bt_mesh_stop_ble_advertising(arg->stop_ble_advertising.index);
         break;
 #endif /* CONFIG_BLE_MESH_SUPPORT_BLE_ADV */
+    case BTC_BLE_MESH_ACT_MODEL_SUBSCRIBE_GROUP_ADDR:
+        act = ESP_BLE_MESH_MODEL_SUBSCRIBE_GROUP_ADDR_COMP_EVT;
+        param.model_sub_group_addr_comp.element_addr = arg->model_sub_group_addr.element_addr;
+        param.model_sub_group_addr_comp.company_id = arg->model_sub_group_addr.company_id;
+        param.model_sub_group_addr_comp.model_id = arg->model_sub_group_addr.model_id;
+        param.model_sub_group_addr_comp.group_addr = arg->model_sub_group_addr.group_addr;
+        param.model_sub_group_addr_comp.err_code =
+            bt_mesh_model_subscribe_group_addr(arg->model_sub_group_addr.element_addr,
+                                               arg->model_sub_group_addr.company_id,
+                                               arg->model_sub_group_addr.model_id,
+                                               arg->model_sub_group_addr.group_addr);
+        break;
+    case BTC_BLE_MESH_ACT_MODEL_UNSUBSCRIBE_GROUP_ADDR:
+        act = ESP_BLE_MESH_MODEL_UNSUBSCRIBE_GROUP_ADDR_COMP_EVT;
+        param.model_unsub_group_addr_comp.element_addr = arg->model_unsub_group_addr.element_addr;
+        param.model_unsub_group_addr_comp.company_id = arg->model_unsub_group_addr.company_id;
+        param.model_unsub_group_addr_comp.model_id = arg->model_unsub_group_addr.model_id;
+        param.model_unsub_group_addr_comp.group_addr = arg->model_unsub_group_addr.group_addr;
+        param.model_unsub_group_addr_comp.err_code =
+            bt_mesh_model_unsubscribe_group_addr(arg->model_unsub_group_addr.element_addr,
+                                                 arg->model_unsub_group_addr.company_id,
+                                                 arg->model_unsub_group_addr.model_id,
+                                                 arg->model_unsub_group_addr.group_addr);
+        break;
     case BTC_BLE_MESH_ACT_DEINIT_MESH:
         act = ESP_BLE_MESH_DEINIT_MESH_COMP_EVT;
         param.deinit_mesh_comp.err_code = bt_mesh_deinit((struct bt_mesh_deinit_param *)&arg->mesh_deinit.param);
@@ -1965,8 +1996,8 @@ void btc_ble_mesh_model_call_handler(btc_msg_t *msg)
         break;
     }
     case BTC_BLE_MESH_ACT_SERVER_MODEL_SEND: {
-        /* arg->model_send.length contains opcode & message, 4 is used for TransMIC */
-        struct net_buf_simple *buf = bt_mesh_alloc_buf(arg->model_send.length + 4);
+        /* arg->model_send.length contains opcode & payload, plus extra 4-bytes TransMIC */
+        struct net_buf_simple *buf = bt_mesh_alloc_buf(arg->model_send.length + BLE_MESH_MIC_SHORT);
         if (!buf) {
             BT_ERR("%s, Failed to allocate memory", __func__);
             break;
@@ -1983,8 +2014,8 @@ void btc_ble_mesh_model_call_handler(btc_msg_t *msg)
     }
     case BTC_BLE_MESH_ACT_CLIENT_MODEL_SEND: {
         bt_mesh_role_param_t common = {0};
-        /* arg->model_send.length contains opcode & message, 4 is used for TransMIC */
-        struct net_buf_simple *buf = bt_mesh_alloc_buf(arg->model_send.length + 4);
+        /* arg->model_send.length contains opcode & message, plus extra 4-bytes TransMIC */
+        struct net_buf_simple *buf = bt_mesh_alloc_buf(arg->model_send.length + BLE_MESH_MIC_SHORT);
         if (!buf) {
             BT_ERR("%s, Failed to allocate memory", __func__);
             break;

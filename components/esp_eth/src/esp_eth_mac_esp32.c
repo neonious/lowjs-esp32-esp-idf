@@ -26,9 +26,11 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
+#include "hal/cpu_hal.h"
 #include "hal/emac.h"
 #include "soc/soc.h"
 #include "sdkconfig.h"
+#include "esp_rom_gpio.h"
 
 static const char *TAG = "emac_esp32";
 #define MAC_CHECK(a, str, goto_tag, ret_value, ...)                               \
@@ -248,8 +250,8 @@ static void emac_esp32_rx_task(void *arg)
     uint8_t *buffer = NULL;
     uint32_t length = 0;
     while (1) {
-        // block indefinitely until some task notifies me
-        ulTaskNotifyTake(pdFALSE, portMAX_DELAY);
+        // block indefinitely until got notification from underlay event
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
         do {
             length = ETH_MAX_PACKET_SIZE;
             buffer = malloc(length);
@@ -274,12 +276,12 @@ static void emac_esp32_init_smi_gpio(emac_esp32_t *emac)
 {
     /* Setup SMI MDC GPIO */
     gpio_set_direction(emac->smi_mdc_gpio_num, GPIO_MODE_OUTPUT);
-    gpio_matrix_out(emac->smi_mdc_gpio_num, EMAC_MDC_O_IDX, false, false);
+    esp_rom_gpio_connect_out_signal(emac->smi_mdc_gpio_num, EMAC_MDC_O_IDX, false, false);
     PIN_FUNC_SELECT(GPIO_PIN_MUX_REG[emac->smi_mdc_gpio_num], PIN_FUNC_GPIO);
     /* Setup SMI MDIO GPIO */
     gpio_set_direction(emac->smi_mdio_gpio_num, GPIO_MODE_INPUT_OUTPUT);
-    gpio_matrix_out(emac->smi_mdio_gpio_num, EMAC_MDO_O_IDX, false, false);
-    gpio_matrix_in(emac->smi_mdio_gpio_num, EMAC_MDI_I_IDX, false);
+    esp_rom_gpio_connect_out_signal(emac->smi_mdio_gpio_num, EMAC_MDO_O_IDX, false, false);
+    esp_rom_gpio_connect_in_signal(emac->smi_mdio_gpio_num, EMAC_MDI_I_IDX, false);
     PIN_FUNC_SELECT(GPIO_PIN_MUX_REG[emac->smi_mdio_gpio_num], PIN_FUNC_GPIO);
 }
 
@@ -337,6 +339,20 @@ static esp_err_t emac_esp32_deinit(esp_eth_mac_t *mac)
     emac_hal_stop(&emac->hal);
     eth->on_state_changed(eth, ETH_STATE_DEINIT, NULL);
     periph_module_disable(PERIPH_EMAC_MODULE);
+    return ESP_OK;
+}
+
+static esp_err_t emac_esp32_start(esp_eth_mac_t *mac)
+{
+    emac_esp32_t *emac = __containerof(mac, emac_esp32_t, parent);
+    emac_hal_start(&emac->hal);
+    return ESP_OK;
+}
+
+static esp_err_t emac_esp32_stop(esp_eth_mac_t *mac)
+{
+    emac_esp32_t *emac = __containerof(mac, emac_esp32_t, parent);
+    emac_hal_stop(&emac->hal);
     return ESP_OK;
 }
 
@@ -414,6 +430,8 @@ esp_eth_mac_t *esp_eth_mac_new_esp32(const eth_mac_config_t *config)
     emac->parent.set_mediator = emac_esp32_set_mediator;
     emac->parent.init = emac_esp32_init;
     emac->parent.deinit = emac_esp32_deinit;
+    emac->parent.start = emac_esp32_start;
+    emac->parent.stop = emac_esp32_stop;
     emac->parent.del = emac_esp32_del;
     emac->parent.write_phy_reg = emac_esp32_write_phy_reg;
     emac->parent.read_phy_reg = emac_esp32_read_phy_reg;

@@ -72,9 +72,9 @@ function run_tests()
     print_status "Updating component source file rebuilds component"
     # touch a file & do a build
     take_build_snapshot
-    touch ${IDF_PATH}/components/esp32/cpu_start.c
+    touch ${IDF_PATH}/components/esp_system/port/cpu_start.c
     idf.py build || failure "Failed to partial build"
-    assert_rebuilt ${APP_BINS} esp-idf/esp32/libesp32.a esp-idf/esp32/CMakeFiles/${IDF_COMPONENT_PREFIX}_esp32.dir/cpu_start.c.obj
+    assert_rebuilt ${APP_BINS} esp-idf/esp_system/libesp_system.a esp-idf/esp_system/CMakeFiles/${IDF_COMPONENT_PREFIX}_esp_system.dir/port/cpu_start.c.obj
     assert_not_rebuilt esp-idf/lwip/liblwip.a esp-idf/freertos/libfreertos.a ${BOOTLOADER_BINS} ${PARTITION_BIN}
 
     print_status "Bootloader source file rebuilds bootloader"
@@ -109,12 +109,12 @@ function run_tests()
 	echo "project-version-2.0(012345678901234567890123456789)" > ${TESTDIR}/template/version.txt
 	idf.py build || failure "Failed to rebuild with changed app version"
     assert_rebuilt ${APP_BINS}
-    assert_not_rebuilt ${BOOTLOADER_BINS} esp-idf/esp32/libesp32.a
+    assert_not_rebuilt ${BOOTLOADER_BINS} esp-idf/esp_system/libesp_system.a
 
     print_status "Re-building does not change app.bin"
     take_build_snapshot
     idf.py build
-    assert_not_rebuilt ${APP_BINS} ${BOOTLOADER_BINS} esp-idf/esp32/libesp32.a
+    assert_not_rebuilt ${APP_BINS} ${BOOTLOADER_BINS} esp-idf/esp_system/libesp_system.a
     rm -f ${IDF_PATH}/version.txt
     rm -f ${TESTDIR}/template/version.txt
 
@@ -447,6 +447,12 @@ function run_tests()
     grep "CONFIG_PARTITION_TABLE_TWO_OTA=y" sdkconfig || failure "The define from sdkconfig should be into sdkconfig"
     rm sdkconfig sdkconfig.defaults sdkconfig.defaults.esp32
 
+    print_status "Test if it can build the example to run on host"
+    pushd $IDF_PATH/examples/build_system/cmake/idf_as_lib
+    (set -euo pipefail && source build.sh)
+    popd
+    rm -r $IDF_PATH/examples/build_system/cmake/idf_as_lib/build
+
     print_status "Building a project with CMake library imported and PSRAM workaround, all files compile with workaround"
     # Test for libraries compiled within ESP-IDF
     rm -rf build
@@ -481,6 +487,17 @@ function run_tests()
         echo ${PWD}
         rm -r sdkconfig.defaults build
     done
+
+    print_status "Cleaning Python bytecode"
+    idf.py clean > /dev/null
+    idf.py fullclean > /dev/null
+    if [ "$(find $IDF_PATH -name "*.py[co]" | wc -l)" -eq 0 ]; then
+        failure "No Python bytecode in IDF!"
+    fi
+    idf.py python-clean
+    if [ "$(find $IDF_PATH -name "*.py[co]" | wc -l)" -gt 0 ]; then
+        failure "Python bytecode isn't working!"
+    fi
 
     print_status "Displays partition table when executing target partition_table"
     idf.py partition_table | grep -E "# ESP-IDF .+ Partition Table"
@@ -723,6 +740,32 @@ endmenu\n" >> ${IDF_PATH}/Kconfig
     idf.py reconfigure || failure "Couldn't configure for loadable ELF file"
     test -f build/flasher_args.json && failure "flasher_args.json should not be generated in a loadable ELF build"
     idf.py build || failure "Couldn't build a loadable ELF file"
+
+    print_status "Defaults set properly for unspecified idf_build_process args"
+    pushd $IDF_PATH/examples/build_system/cmake/idf_as_lib
+    cp CMakeLists.txt CMakeLists.txt.bak
+    echo -e "\nidf_build_get_property(project_dir PROJECT_DIR)" >> CMakeLists.txt
+    echo -e "\nmessage(\"Project directory: \${project_dir}\")" >> CMakeLists.txt
+    mkdir build && cd build
+    cmake .. -DCMAKE_TOOLCHAIN_FILE=$IDF_PATH/tools/cmake/toolchain-esp32.cmake -DTARGET=esp32 &> log.txt
+    grep "Project directory: $IDF_PATH/examples/build_system/cmake/idf_as_lib" log.txt || failure "PROJECT_DIR default was not set"
+    cd ..
+    mv CMakeLists.txt.bak CMakeLists.txt
+    rm -rf build
+    popd
+
+    print_status "Getting component overriden dir"
+    clean_build_dir
+    mkdir -p components/esp32
+    echo "idf_component_get_property(overriden_dir \${COMPONENT_NAME} COMPONENT_OVERRIDEN_DIR)" >> components/esp32/CMakeLists.txt
+    echo "message(STATUS overriden_dir:\${overriden_dir})" >> components/esp32/CMakeLists.txt 
+    (idf.py reconfigure | grep "overriden_dir:$IDF_PATH/components/esp32") || failure  "Failed to get overriden dir" # no registration, overrides registration as well
+    print_status "Overriding Kconfig"
+    echo "idf_component_register(KCONFIG \${overriden_dir}/Kconfig)" >> components/esp32/CMakeLists.txt
+    echo "idf_component_get_property(kconfig \${COMPONENT_NAME} KCONFIG)" >> components/esp32/CMakeLists.txt
+    echo "message(STATUS kconfig:\${overriden_dir}/Kconfig)" >> components/esp32/CMakeLists.txt
+    (idf.py reconfigure | grep "kconfig:$IDF_PATH/components/esp32/Kconfig") || failure  "Failed to verify original `main` directory"
+    rm -rf components
 
     print_status "All tests completed"
     if [ -n "${FAILURES}" ]; then

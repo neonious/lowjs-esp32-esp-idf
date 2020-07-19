@@ -24,20 +24,16 @@
 #include "esp32/rom/efuse.h"
 #include "esp32/rom/ets_sys.h"
 #include "esp32/rom/spi_flash.h"
-#include "esp32/rom/crc.h"
 #include "esp32/rom/rtc.h"
 #include "esp32/rom/uart.h"
-#include "esp32/rom/gpio.h"
 #include "esp32/rom/secure_boot.h"
 #elif CONFIG_IDF_TARGET_ESP32S2
 #include "esp32s2/rom/cache.h"
 #include "esp32s2/rom/efuse.h"
 #include "esp32s2/rom/ets_sys.h"
 #include "esp32s2/rom/spi_flash.h"
-#include "esp32s2/rom/crc.h"
 #include "esp32s2/rom/rtc.h"
 #include "esp32s2/rom/uart.h"
-#include "esp32s2/rom/gpio.h"
 #include "esp32s2/rom/secure_boot.h"
 #include "soc/extmem_reg.h"
 #include "soc/cache_memory.h"
@@ -65,6 +61,7 @@
 #include "bootloader_common.h"
 #include "bootloader_utility.h"
 #include "bootloader_sha.h"
+#include "bootloader_console.h"
 #include "esp_efuse.h"
 
 static const char *TAG = "boot";
@@ -759,6 +756,7 @@ static void set_cache_and_start_app(
     // Application will need to do Cache_Flush(1) and Cache_Read_Enable(1)
 
     ESP_LOGD(TAG, "start: 0x%08x", entry_addr);
+    bootloader_atexit();
     typedef void (*entry_t)(void) __attribute__((noreturn));
     entry_t entry = ((entry_t) entry_addr);
 
@@ -770,14 +768,18 @@ static void set_cache_and_start_app(
 void bootloader_reset(void)
 {
 #ifdef BOOTLOADER_BUILD
-    uart_tx_flush(0);    /* Ensure any buffered log output is displayed */
-    uart_tx_flush(1);
+    bootloader_atexit();
     ets_delay_us(1000); /* Allow last byte to leave FIFO */
     REG_WRITE(RTC_CNTL_OPTIONS0_REG, RTC_CNTL_SW_SYS_RST);
     while (1) { }       /* This line will never be reached, used to keep gcc happy */
 #else
     abort();            /* This function should really not be called from application code */
 #endif
+}
+
+void bootloader_atexit(void)
+{
+    bootloader_console_deinit();
 }
 
 esp_err_t bootloader_sha256_hex_to_str(char *out_str, const uint8_t *in_array_hex, size_t len)

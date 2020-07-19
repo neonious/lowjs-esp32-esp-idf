@@ -29,10 +29,6 @@
 #include "provisioner_prov.h"
 #include "provisioner_main.h"
 
-#define ACTION_ENTER    0x01
-#define ACTION_SUSPEND  0x02
-#define ACTION_EXIT     0x03
-
 static bool mesh_init = false;
 
 int bt_mesh_provision(const u8_t net_key[16], u16_t net_idx,
@@ -189,7 +185,7 @@ int bt_mesh_prov_enable(bt_mesh_prov_bearer_t bearers)
 
     if (IS_ENABLED(CONFIG_BLE_MESH_PB_ADV) &&
             (bearers & BLE_MESH_PROV_ADV)) {
-        /* Make sure we're scanning for provisioning inviations */
+        /* Make sure we're scanning for provisioning invitations */
         bt_mesh_scan_enable();
         /* Enable unprovisioned beacon sending */
         bt_mesh_beacon_enable();
@@ -319,7 +315,9 @@ int bt_mesh_init(const struct bt_mesh_prov *prov,
         return -EALREADY;
     }
 
-    bt_mesh_k_init();
+    bt_mesh_mutex_init();
+
+    bt_mesh_timer_init();
 
     bt_mesh_hci_init();
 
@@ -332,6 +330,18 @@ int bt_mesh_init(const struct bt_mesh_prov *prov,
 
     if (IS_ENABLED(CONFIG_BLE_MESH_PROXY)) {
         bt_mesh_gatt_init();
+    }
+
+    if ((IS_ENABLED(CONFIG_BLE_MESH_NODE) &&
+        IS_ENABLED(CONFIG_BLE_MESH_PB_GATT)) ||
+        IS_ENABLED(CONFIG_BLE_MESH_GATT_PROXY_SERVER)) {
+        bt_mesh_proxy_init();
+    }
+
+    if ((IS_ENABLED(CONFIG_BLE_MESH_PROVISIONER) &&
+        IS_ENABLED(CONFIG_BLE_MESH_PB_GATT)) ||
+        IS_ENABLED(CONFIG_BLE_MESH_GATT_PROXY_CLIENT)) {
+        bt_mesh_proxy_prov_client_init();
     }
 
     if (IS_ENABLED(CONFIG_BLE_MESH_PROV)) {
@@ -362,19 +372,6 @@ int bt_mesh_init(const struct bt_mesh_prov *prov,
     bt_mesh_beacon_init();
 
     bt_mesh_adv_init();
-
-    if (IS_ENABLED(CONFIG_BLE_MESH_PROXY)) {
-        if ((IS_ENABLED(CONFIG_BLE_MESH_NODE) &&
-            IS_ENABLED(CONFIG_BLE_MESH_PB_GATT)) ||
-            IS_ENABLED(CONFIG_BLE_MESH_GATT_PROXY_SERVER)) {
-            bt_mesh_proxy_init();
-        }
-        if ((IS_ENABLED(CONFIG_BLE_MESH_PROVISIONER) &&
-            IS_ENABLED(CONFIG_BLE_MESH_PB_GATT)) ||
-            IS_ENABLED(CONFIG_BLE_MESH_GATT_PROXY_CLIENT)) {
-            bt_mesh_proxy_prov_client_init();
-        }
-    }
 
     if (IS_ENABLED(CONFIG_BLE_MESH_PROVISIONER)) {
         bt_mesh_provisioner_init();
@@ -442,10 +439,10 @@ int bt_mesh_deinit(struct bt_mesh_deinit_param *param)
 
     bt_mesh_beacon_deinit();
 
-    if (IS_ENABLED(CONFIG_BLE_MESH_PROXY)) {
-        if (IS_ENABLED(CONFIG_BLE_MESH_NODE)) {
-            bt_mesh_proxy_deinit();
-        }
+    if ((IS_ENABLED(CONFIG_BLE_MESH_NODE) &&
+        IS_ENABLED(CONFIG_BLE_MESH_PB_GATT)) ||
+        IS_ENABLED(CONFIG_BLE_MESH_GATT_PROXY_SERVER)) {
+        bt_mesh_proxy_deinit();
     }
 
     if ((IS_ENABLED(CONFIG_BLE_MESH_PROVISIONER) &&
@@ -485,7 +482,9 @@ int bt_mesh_deinit(struct bt_mesh_deinit_param *param)
         bt_mesh_settings_deinit();
     }
 
-    bt_mesh_k_deinit();
+    bt_mesh_timer_deinit();
+
+    bt_mesh_mutex_deinit();
 
     mesh_init = false;
     return 0;
@@ -624,64 +623,3 @@ int bt_mesh_provisioner_disable(bt_mesh_prov_bearer_t bearers)
     return 0;
 }
 #endif /* CONFIG_BLE_MESH_PROVISIONER */
-
-/* The following API is for fast provisioning */
-
-#if CONFIG_BLE_MESH_FAST_PROV
-u8_t bt_mesh_set_fast_prov_action(u8_t action)
-{
-    if (!action || action > ACTION_EXIT) {
-        return 0x01;
-    }
-
-    if ((!bt_mesh_is_provisioner_en() && (action == ACTION_SUSPEND || action == ACTION_EXIT)) ||
-            (bt_mesh_is_provisioner_en() && (action == ACTION_ENTER))) {
-        BT_WARN("%s, Already", __func__);
-        return 0x0;
-    }
-
-    if (action == ACTION_ENTER) {
-#if 0
-        /* If the device is provisioned using PB-GATT and connected to
-         * the phone with proxy service, proxy_gatt shall not be disabled
-         * here. The node needs to send some status messages to the phone
-         * while it is connected.
-         */
-        if (IS_ENABLED(CONFIG_BLE_MESH_GATT_PROXY_SERVER)) {
-            bt_mesh_proxy_gatt_disable();
-        }
-#endif
-        if (bt_mesh_beacon_get() == BLE_MESH_BEACON_ENABLED) {
-            bt_mesh_beacon_disable();
-        }
-        if (IS_ENABLED(CONFIG_BLE_MESH_PB_GATT)) {
-            bt_mesh_provisioner_pb_gatt_enable();
-        }
-        bt_mesh_provisioner_set_prov_bearer(BLE_MESH_PROV_ADV, false);
-        bt_mesh_provisioner_fast_prov_enable(true);
-        bt_mesh_atomic_or(bt_mesh.flags, BIT(BLE_MESH_PROVISIONER) | BIT(BLE_MESH_VALID_PROV));
-    } else {
-        if (IS_ENABLED(CONFIG_BLE_MESH_PB_GATT)) {
-            bt_mesh_provisioner_pb_gatt_disable();
-        }
-        if (bt_mesh_beacon_get() == BLE_MESH_BEACON_ENABLED) {
-            bt_mesh_beacon_enable();
-        }
-#if 0
-        /* Mesh Proxy GATT will be re-enabled on application layer */
-        if (IS_ENABLED(CONFIG_BLE_MESH_GATT_PROXY_SERVER) &&
-                bt_mesh_gatt_proxy_get() != BLE_MESH_GATT_PROXY_NOT_SUPPORTED) {
-            bt_mesh_proxy_gatt_enable();
-            bt_mesh_adv_update();
-        }
-#endif
-        bt_mesh_atomic_and(bt_mesh.flags, ~(BIT(BLE_MESH_PROVISIONER) | BIT(BLE_MESH_VALID_PROV)));
-        bt_mesh_provisioner_fast_prov_enable(false);
-        if (action == ACTION_EXIT) {
-            bt_mesh_provisioner_remove_node(NULL);
-        }
-    }
-
-    return 0x0;
-}
-#endif /* CONFIG_BLE_MESH_FAST_PROV */

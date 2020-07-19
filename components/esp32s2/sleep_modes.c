@@ -34,8 +34,8 @@
 #include "soc/soc_memory_layout.h"
 #include "soc/uart_caps.h"
 #include "hal/wdt_hal.h"
+#include "hal/clk_gate_ll.h"
 #include "driver/rtc_io.h"
-#include "driver/uart.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "sdkconfig.h"
@@ -144,21 +144,34 @@ void esp_deep_sleep(uint64_t time_in_us)
 static void IRAM_ATTR flush_uarts(void)
 {
     for (int i = 0; i < SOC_UART_NUM; ++i) {
-        uart_tx_wait_idle(i);
+        if (periph_ll_periph_enabled(PERIPH_UART0_MODULE + i)) {
+            uart_tx_wait_idle(i);
+        }
     }
 }
 
 static void IRAM_ATTR suspend_uarts(void)
 {
     for (int i = 0; i < SOC_UART_NUM; ++i) {
-        uart_tx_wait_idle(i);
-        /* Note: Set `UART_FORCE_XOFF` can't stop new Tx request. */
+        if (periph_ll_periph_enabled(PERIPH_UART0_MODULE + i)) {
+            REG_CLR_BIT(UART_FLOW_CONF_REG(i), UART_FORCE_XON);
+            REG_SET_BIT(UART_FLOW_CONF_REG(i), UART_SW_FLOW_CON_EN | UART_FORCE_XOFF);
+            while (REG_GET_FIELD(UART_FSM_STATUS_REG(i), UART_ST_UTX_OUT) != 0) {
+                ;
+            }
+        }
     }
 }
 
 static void IRAM_ATTR resume_uarts(void)
 {
-    /* Note: Set `UART_FORCE_XOFF` can't stop new Tx request. */
+    for (int i = 0; i < SOC_UART_NUM; ++i) {
+        if (periph_ll_periph_enabled(PERIPH_UART0_MODULE + i)) {
+            REG_CLR_BIT(UART_FLOW_CONF_REG(i), UART_FORCE_XOFF);
+            REG_SET_BIT(UART_FLOW_CONF_REG(i), UART_FORCE_XON);
+            REG_CLR_BIT(UART_FLOW_CONF_REG(i), UART_SW_FLOW_CON_EN | UART_FORCE_XON);
+        }
+    }
 }
 
 static uint32_t IRAM_ATTR esp_sleep_start(uint32_t pd_flags)
@@ -194,6 +207,14 @@ static uint32_t IRAM_ATTR esp_sleep_start(uint32_t pd_flags)
         touch_wakeup_prepare();
     }
 
+    uint32_t reject_triggers = 0;
+    if ((pd_flags & RTC_SLEEP_PD_DIG) == 0) {
+        /* Light sleep, enable sleep reject for faster return from this function,
+         * in case the wakeup is already triggerred.
+         */
+        reject_triggers = s_config.wakeup_triggers;
+    }
+
     // Enter sleep
     rtc_sleep_config_t config = RTC_SLEEP_CONFIG_DEFAULT(pd_flags);
     rtc_sleep_init(config);
@@ -203,7 +224,8 @@ static uint32_t IRAM_ATTR esp_sleep_start(uint32_t pd_flags)
         s_config.sleep_duration > 0) {
         timer_wakeup_prepare();
     }
-    uint32_t result = rtc_sleep_start(s_config.wakeup_triggers, 0, 1);
+
+    uint32_t result = rtc_sleep_start(s_config.wakeup_triggers, reject_triggers, 1);
 
     // Restore CPU frequency
     rtc_clk_cpu_freq_set_config(&cpu_freq_config);
@@ -571,14 +593,20 @@ esp_err_t esp_sleep_enable_gpio_wakeup(void)
 
 esp_err_t esp_sleep_enable_uart_wakeup(int uart_num)
 {
-    if (uart_num == UART_NUM_0) {
+    if (uart_num == 0) {
         s_config.wakeup_triggers |= RTC_UART0_TRIG_EN;
-    } else if (uart_num == UART_NUM_1) {
+    } else if (uart_num == 1) {
         s_config.wakeup_triggers |= RTC_UART1_TRIG_EN;
     } else {
         return ESP_ERR_INVALID_ARG;
     }
 
+    return ESP_OK;
+}
+
+esp_err_t esp_sleep_enable_wifi_wakeup(void)
+{
+    s_config.wakeup_triggers |= RTC_WIFI_TRIG_EN;
     return ESP_OK;
 }
 
@@ -603,6 +631,8 @@ esp_sleep_wakeup_cause_t esp_sleep_get_wakeup_cause(void)
         return ESP_SLEEP_WAKEUP_GPIO;
     } else if (wakeup_cause & (RTC_UART0_TRIG_EN | RTC_UART1_TRIG_EN)) {
         return ESP_SLEEP_WAKEUP_UART;
+    } else if (wakeup_cause & RTC_WIFI_TRIG_EN) {
+        return ESP_SLEEP_WAKEUP_WIFI;
     } else {
         return ESP_SLEEP_WAKEUP_UNDEFINED;
     }

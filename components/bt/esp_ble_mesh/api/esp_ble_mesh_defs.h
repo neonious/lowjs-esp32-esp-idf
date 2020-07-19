@@ -38,6 +38,12 @@ extern "C" {
 /*!< The maximum length of a BLE Mesh message, including Opcode, Payload and TransMIC */
 #define ESP_BLE_MESH_SDU_MAX_LEN            384
 
+/*!< Length of a short Mesh MIC. */
+#define ESP_BLE_MESH_MIC_SHORT              4
+
+/*!< Length of a long Mesh MIC. */
+#define ESP_BLE_MESH_MIC_LONG               8
+
 /*!< The maximum length of a BLE Mesh provisioned node name */
 #define ESP_BLE_MESH_NODE_NAME_MAX_LEN      31
 
@@ -51,6 +57,15 @@ typedef uint8_t esp_ble_mesh_octet16_t[ESP_BLE_MESH_OCTET16_LEN];
 /*!< Define the BLE Mesh octet 8 bytes size */
 #define ESP_BLE_MESH_OCTET8_LEN     8
 typedef uint8_t esp_ble_mesh_octet8_t[ESP_BLE_MESH_OCTET8_LEN];
+
+/*!< Invalid Company ID */
+#define ESP_BLE_MESH_CID_NVAL                     0xFFFF
+
+/*!< Special TTL value to request using configured default TTL */
+#define ESP_BLE_MESH_TTL_DEFAULT                  0xFF
+
+/*!< Maximum allowed TTL value */
+#define ESP_BLE_MESH_TTL_MAX                      0x7F
 
 #define ESP_BLE_MESH_ADDR_UNASSIGNED              0x0000
 #define ESP_BLE_MESH_ADDR_ALL_NODES               0xFFFF
@@ -369,7 +384,8 @@ typedef struct {
 
     uint16_t publish_addr;  /*!< Publish Address. */
     uint16_t app_idx:12,    /*!< Publish AppKey Index. */
-             cred:1;        /*!< Friendship Credentials Flag. */
+             cred:1,        /*!< Friendship Credentials Flag. */
+             send_rel:1;    /*!< Force reliable sending (segment acks) */
 
     uint8_t  ttl;           /*!< Publish Time to Live. */
     uint8_t  retransmit;    /*!< Retransmit Count & Interval Steps. */
@@ -512,7 +528,7 @@ typedef struct {
     /** Force sending reliably by using segment acknowledgement */
     uint8_t  send_rel: 1;
 
-    /** TTL, or BLE_MESH_TTL_DEFAULT for default TTL. */
+    /** TTL, or ESP_BLE_MESH_TTL_DEFAULT for default TTL. */
     uint8_t  send_ttl;
 
     /** Opcode of a received message. Not used for sending message. */
@@ -837,6 +853,8 @@ typedef enum {
     ESP_BLE_MESH_PROXY_CLIENT_REMOVE_FILTER_ADDR_COMP_EVT,      /*!< Proxy Client remove filter address completion event */
     ESP_BLE_MESH_START_BLE_ADVERTISING_COMP_EVT,                /*!< Start BLE advertising completion event */
     ESP_BLE_MESH_STOP_BLE_ADVERTISING_COMP_EVT,                 /*!< Stop BLE advertising completion event */
+    ESP_BLE_MESH_MODEL_SUBSCRIBE_GROUP_ADDR_COMP_EVT,           /*!< Local model subscribes group address completion event */
+    ESP_BLE_MESH_MODEL_UNSUBSCRIBE_GROUP_ADDR_COMP_EVT,         /*!< Local model unsubscribes group address completion event */
     ESP_BLE_MESH_DEINIT_MESH_COMP_EVT,                          /*!< De-initialize BLE Mesh stack completion event */
     ESP_BLE_MESH_PROV_EVT_MAX,
 } esp_ble_mesh_prov_cb_event_t;
@@ -1319,6 +1337,26 @@ typedef union {
         int err_code;                           /*!< Indicate the result of stopping BLE advertising */
         uint8_t index;                          /*!< Index of the BLE advertising */
     } stop_ble_advertising_comp;                /*!< Event parameter of ESP_BLE_MESH_STOP_BLE_ADVERTISING_COMP_EVT */
+    /**
+     * @brief ESP_BLE_MESH_MODEL_SUBSCRIBE_GROUP_ADDR_COMP_EVT
+     */
+    struct ble_mesh_model_sub_group_addr_comp_param {
+        int err_code;                           /*!< Indicate the result of local model subscribing group address */
+        uint16_t element_addr;                  /*!< Element address */
+        uint16_t company_id;                    /*!< Company ID */
+        uint16_t model_id;                      /*!< Model ID */
+        uint16_t group_addr;                    /*!< Group Address */
+    } model_sub_group_addr_comp;                /*!< Event parameters of ESP_BLE_MESH_MODEL_SUBSCRIBE_GROUP_ADDR_COMP_EVT */
+    /**
+     * @brief ESP_BLE_MESH_MODEL_UNSUBSCRIBE_GROUP_ADDR_COMP_EVT
+     */
+    struct ble_mesh_model_unsub_group_addr_comp_param {
+        int err_code;                           /*!< Indicate the result of local model unsubscribing group address */
+        uint16_t element_addr;                  /*!< Element address */
+        uint16_t company_id;                    /*!< Company ID */
+        uint16_t model_id;                      /*!< Model ID */
+        uint16_t group_addr;                    /*!< Group Address */
+    } model_unsub_group_addr_comp;              /*!< Event parameters of ESP_BLE_MESH_MODEL_UNSUBSCRIBE_GROUP_ADDR_COMP_EVT */
     /**
      * @brief ESP_BLE_MESH_DEINIT_MESH_COMP_EVT
      */

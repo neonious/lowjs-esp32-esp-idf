@@ -19,20 +19,19 @@
 #include "esp_log.h"
 #if CONFIG_IDF_TARGET_ESP32
 #include "esp32/rom/spi_flash.h"
-#include "esp32/rom/crc.h"
-#include "esp32/rom/gpio.h"
 #elif CONFIG_IDF_TARGET_ESP32S2
 #include "esp32s2/rom/spi_flash.h"
-#include "esp32s2/rom/crc.h"
 #include "esp32s2/rom/ets_sys.h"
-#include "esp32s2/rom/gpio.h"
 #endif
+#include "esp_rom_crc.h"
+#include "esp_rom_gpio.h"
 #include "esp_flash_partitions.h"
 #include "bootloader_flash.h"
 #include "bootloader_common.h"
 #include "soc/gpio_periph.h"
 #include "soc/rtc.h"
 #include "soc/efuse_reg.h"
+#include "hal/gpio_ll.h"
 #include "esp_image_format.h"
 #include "bootloader_sha.h"
 #include "sys/param.h"
@@ -43,7 +42,7 @@ static const char* TAG = "boot_comm";
 
 uint32_t bootloader_common_ota_select_crc(const esp_ota_select_entry_t *s)
 {
-    return crc32_le(UINT32_MAX, (uint8_t*)&s->ota_seq, 4);
+    return esp_rom_crc32_le(UINT32_MAX, (uint8_t*)&s->ota_seq, 4);
 }
 
 bool bootloader_common_ota_select_invalid(const esp_ota_select_entry_t *s)
@@ -58,17 +57,17 @@ bool bootloader_common_ota_select_valid(const esp_ota_select_entry_t *s)
 
 esp_comm_gpio_hold_t bootloader_common_check_long_hold_gpio(uint32_t num_pin, uint32_t delay_sec)
 {
-    gpio_pad_select_gpio(num_pin);
+    esp_rom_gpio_pad_select_gpio(num_pin);
     if (GPIO_PIN_MUX_REG[num_pin]) {
         PIN_INPUT_ENABLE(GPIO_PIN_MUX_REG[num_pin]);
     }
-    gpio_pad_pullup(num_pin);
+    esp_rom_gpio_pad_pullup_only(num_pin);
     uint32_t tm_start = esp_log_early_timestamp();
-    if (GPIO_INPUT_GET(num_pin) == 1) {
+    if (gpio_ll_get_level(&GPIO, num_pin) == 1) {
         return GPIO_NOT_HOLD;
     }
     do {
-        if (GPIO_INPUT_GET(num_pin) != 0) {
+        if (gpio_ll_get_level(&GPIO, num_pin) != 0) {
             return GPIO_SHORT_HOLD;
         }
     } while (delay_sec > ((esp_log_early_timestamp() - tm_start) / 1000L));
@@ -311,12 +310,12 @@ rtc_retain_mem_t *const rtc_retain_mem = (rtc_retain_mem_t *)(SOC_RTC_DRAM_HIGH 
 
 static bool check_rtc_retain_mem(void)
 {
-    return crc32_le(UINT32_MAX, (uint8_t*)rtc_retain_mem, sizeof(rtc_retain_mem_t) - sizeof(rtc_retain_mem->crc)) == rtc_retain_mem->crc && rtc_retain_mem->crc != UINT32_MAX;
+    return esp_rom_crc32_le(UINT32_MAX, (uint8_t*)rtc_retain_mem, sizeof(rtc_retain_mem_t) - sizeof(rtc_retain_mem->crc)) == rtc_retain_mem->crc && rtc_retain_mem->crc != UINT32_MAX;
 }
 
 static void update_rtc_retain_mem_crc(void)
 {
-    rtc_retain_mem->crc = crc32_le(UINT32_MAX, (uint8_t*)rtc_retain_mem, sizeof(rtc_retain_mem_t) - sizeof(rtc_retain_mem->crc));
+    rtc_retain_mem->crc = esp_rom_crc32_le(UINT32_MAX, (uint8_t*)rtc_retain_mem, sizeof(rtc_retain_mem_t) - sizeof(rtc_retain_mem->crc));
 }
 
 void bootloader_common_reset_rtc_retain_mem(void)

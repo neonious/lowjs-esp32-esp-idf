@@ -22,22 +22,13 @@
 extern "C" {
 #endif
 
-#if !CONFIG_BLE_MESH_PROVISIONER
-
+#ifndef CONFIG_BLE_MESH_PBA_SAME_TIME
 #define CONFIG_BLE_MESH_PBA_SAME_TIME   0
+#endif
+
+#ifndef CONFIG_BLE_MESH_PBG_SAME_TIME
 #define CONFIG_BLE_MESH_PBG_SAME_TIME   0
-
-#else
-
-#if !defined(CONFIG_BLE_MESH_PB_ADV)
-#define CONFIG_BLE_MESH_PBA_SAME_TIME   0
-#endif /* !CONFIG_BLE_MESH_PB_ADV */
-
-#if !defined(CONFIG_BLE_MESH_PB_GATT)
-#define CONFIG_BLE_MESH_PBG_SAME_TIME   0
-#endif /* !CONFIG_BLE_MESH_PB_GATT */
-
-#endif /* !CONFIG_BLE_MESH_PROVISIONER */
+#endif
 
 #define RM_AFTER_PROV  BIT(0)
 #define START_PROV_NOW BIT(1)
@@ -152,7 +143,7 @@ int bt_mesh_provisioner_pb_gatt_recv(struct bt_mesh_conn *conn, struct net_buf_s
 int bt_mesh_provisioner_prov_init(const struct bt_mesh_prov *prov_info);
 
 /**
- * @brief This function deinitializes provisioner's PB-GATT and PB-ADV
+ * @brief This function de-initializes provisioner's PB-GATT and PB-ADV
  *        related information.
  *
  * @param[in] erase: Indicate if erasing provisioning information from flash.
@@ -182,7 +173,7 @@ void bt_mesh_provisioner_prov_adv_ind_recv(struct net_buf_simple *buf, const bt_
  */
 const struct bt_mesh_prov *bt_mesh_provisioner_get_prov_info(void);
 
-void bt_mesh_provisoner_restore_prov_info(u16_t primary_addr, u16_t alloc_addr);
+void bt_mesh_provisioner_restore_prov_info(u16_t primary_addr, u16_t alloc_addr);
 
 /* The following APIs are for primary provisioner application use */
 
@@ -395,12 +386,11 @@ void bt_mesh_provisioner_fast_prov_enable(bool enable);
 /**
  * @brief This function is called to set netkey index used for fast provisioning.
  *
- * @param[in] net_key: Netkey value
  * @param[in] net_idx: Netkey index
  *
- * @return status for set netkey index msg
+ * @return None
  */
-u8_t bt_mesh_provisioner_set_fast_prov_net_idx(const u8_t *net_key, u16_t net_idx);
+void bt_mesh_provisioner_set_fast_prov_net_idx(u16_t net_idx);
 
 /**
  * @brief This function is called to get netkey index used for fast provisioning.

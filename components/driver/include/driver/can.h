@@ -18,17 +18,6 @@
 extern "C" {
 #endif
 
-#include "soc/soc_caps.h"
-#ifndef SOC_CAN_SUPPORTED
-#error CAN is not supported in this chip target
-#endif
-
-#include "freertos/FreeRTOS.h"
-#include "esp_types.h"
-#include "esp_intr_alloc.h"
-#include "esp_err.h"
-#include "gpio.h"
-#include "soc/can_caps.h"
 #include "hal/can_types.h"
 
 /* -------------------- Default initializers and flags ---------------------- */

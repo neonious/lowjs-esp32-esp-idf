@@ -18,6 +18,7 @@
 #include "esp_flash_spi_init.h"
 #include "driver/gpio.h"
 #include "esp32/rom/spi_flash.h"
+#include "esp_rom_gpio.h"
 #include "esp_log.h"
 #include "esp_heap_caps.h"
 #include "hal/spi_types.h"
@@ -100,9 +101,9 @@ static IRAM_ATTR NOINLINE_ATTR void cs_initialize(esp_flash_t *chip, const esp_f
             GPIO.enable1_w1ts.data = (0x1 << (cs_io_num - 32));
         }
         GPIO.pin[cs_io_num].pad_driver = 0;
-        gpio_matrix_out(cs_io_num, spics_out, false, false);
+        esp_rom_gpio_connect_out_signal(cs_io_num, spics_out, false, false);
         if (cs_id == 0) {
-            gpio_matrix_in(cs_io_num, spics_in, false);
+            esp_rom_gpio_connect_in_signal(cs_io_num, spics_in, false);
         }
         PIN_FUNC_SELECT(iomux_reg, PIN_FUNC_GPIO);
     }
@@ -145,7 +146,7 @@ esp_err_t spi_bus_add_flash_device(esp_flash_t **out_chip, const esp_flash_spi_d
         goto fail;
     }
 
-    int dev_id;
+    int dev_id = -1;
     esp_err_t err = esp_flash_init_os_functions(chip, config->host_id, &dev_id);
 
     if (err == ESP_ERR_NOT_SUPPORTED) {
@@ -156,6 +157,12 @@ esp_err_t spi_bus_add_flash_device(esp_flash_t **out_chip, const esp_flash_spi_d
     if (err != ESP_OK) {
         ret = err;
         goto fail;
+    }
+    // When `CONFIG_SPI_FLASH_SHARE_SPI1_BUS` is not enabled on SPI1 bus, the
+    // `esp_flash_init_os_functions` will not be able to assign a new device ID. In this case, we
+    // use the `cs_id` in the config structure.
+    if (dev_id == -1 && config->host_id == SPI_HOST) {
+        dev_id = config->cs_id;
     }
     assert(dev_id < SOC_SPI_PERIPH_CS_NUM(config->host_id) && dev_id >= 0);
 

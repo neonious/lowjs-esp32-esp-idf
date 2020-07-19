@@ -25,7 +25,7 @@
 #define BTA_DM_INT_H
 
 #include "common/bt_target.h"
-
+#include "freertos/semphr.h"
 #if (BLE_INCLUDED == TRUE && (defined BTA_GATT_INCLUDED) && (BTA_GATT_INCLUDED == TRUE))
 #include "bta/bta_gatt_api.h"
 #endif
@@ -160,6 +160,7 @@ enum {
     BTA_DM_API_REMOVE_DEVICE_EVT,
     BTA_DM_API_BLE_SET_CHANNELS_EVT,
     BTA_DM_API_UPDATE_WHITE_LIST_EVT,
+    BTA_DM_API_CLEAR_WHITE_LIST_EVT,
     BTA_DM_API_BLE_READ_ADV_TX_POWER_EVT,
     BTA_DM_API_BLE_READ_RSSI_EVT,
 #if BLE_INCLUDED == TRUE
@@ -432,6 +433,7 @@ typedef struct {
     UINT8           new_role;
     BD_ADDR         bd_addr;
     UINT8           hci_status;
+    BOOLEAN         sc_downgrade;
 #if BLE_INCLUDED == TRUE
     UINT16          handle;
 #endif
@@ -473,6 +475,7 @@ typedef struct {
     BD_NAME             bd_name;
     UINT8               features[BTA_FEATURE_BYTES_PER_PAGE * (BTA_EXT_FEATURES_PAGE_MAX + 1)];
     UINT8               pin_length;
+    UINT8               sc_support;
 } tBTA_DM_API_ADD_DEVICE;
 
 /* data type for BTA_DM_API_REMOVE_ACL_EVT */
@@ -1270,6 +1273,7 @@ extern tBTA_DM_DI_CB  bta_dm_di_cb;
 #else
 extern tBTA_DM_DI_CB *bta_dm_di_cb_ptr;
 #define bta_dm_di_cb (*bta_dm_di_cb_ptr)
+SemaphoreHandle_t deinit_semaphore;
 #endif
 
 #if BTA_DYNAMIC_MEMORY == FALSE
@@ -1300,6 +1304,7 @@ extern void bta_dm_set_afh_channels (tBTA_DM_MSG *p_data);
 extern void bta_dm_read_rmt_name(tBTA_DM_MSG *p_data);
 extern void bta_dm_ble_set_channels (tBTA_DM_MSG *p_data);
 extern void bta_dm_update_white_list(tBTA_DM_MSG *p_data);
+extern void bta_dm_clear_white_list(tBTA_DM_MSG *p_data);
 extern void bta_dm_ble_read_adv_tx_power(tBTA_DM_MSG *p_data);
 extern void bta_dm_ble_read_rssi(tBTA_DM_MSG *p_data);
 extern void bta_dm_set_visibility (tBTA_DM_MSG *p_data);

@@ -1,9 +1,9 @@
 menu "FreeRTOS"
 
     config FREERTOS_UNICORE
-        # This config variable is also checked in the ESP32 startup code, not only in FreeRTOS.
         bool "Run FreeRTOS only on first core"
-        default n
+        default "y" if IDF_TARGET_ESP32S2
+        select ESP_SYSTEM_SINGLE_CORE_MODE
         help
             This version of FreeRTOS normally takes control of all cores of
             the CPU. Select this if you only want to start it on the first core.
@@ -174,6 +174,8 @@ menu "FreeRTOS"
 
     config FREERTOS_ISR_STACKSIZE
         int "ISR stack size"
+        range 2100 32768 if ESP32_COREDUMP_DATA_FORMAT_ELF
+        default 2100 if ESP32_COREDUMP_DATA_FORMAT_ELF
         range 1536 32768
         default 1536
         help

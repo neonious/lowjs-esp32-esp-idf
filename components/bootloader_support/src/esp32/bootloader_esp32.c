@@ -23,6 +23,7 @@
 #include "bootloader_common.h"
 #include "bootloader_flash_config.h"
 #include "bootloader_mem.h"
+#include "bootloader_console.h"
 
 #include "soc/cpu.h"
 #include "soc/dport_reg.h"
@@ -36,7 +37,7 @@
 #include "esp32/rom/cache.h"
 #include "esp32/rom/efuse.h"
 #include "esp32/rom/ets_sys.h"
-#include "esp32/rom/gpio.h"
+#include "esp_rom_gpio.h"
 #include "esp32/rom/spi_flash.h"
 #include "esp32/rom/rtc.h"
 #include "esp32/rom/uart.h"
@@ -73,15 +74,15 @@ void bootloader_configure_spi_pins(int drv)
     } else {
         const uint32_t spiconfig = ets_efuse_get_spiconfig();
         if (spiconfig == EFUSE_SPICONFIG_SPI_DEFAULTS) {
-            gpio_matrix_out(FLASH_CS_IO, SPICS0_OUT_IDX, 0, 0);
-            gpio_matrix_out(FLASH_SPIQ_IO, SPIQ_OUT_IDX, 0, 0);
-            gpio_matrix_in(FLASH_SPIQ_IO, SPIQ_IN_IDX, 0);
-            gpio_matrix_out(FLASH_SPID_IO, SPID_OUT_IDX, 0, 0);
-            gpio_matrix_in(FLASH_SPID_IO, SPID_IN_IDX, 0);
-            gpio_matrix_out(FLASH_SPIWP_IO, SPIWP_OUT_IDX, 0, 0);
-            gpio_matrix_in(FLASH_SPIWP_IO, SPIWP_IN_IDX, 0);
-            gpio_matrix_out(FLASH_SPIHD_IO, SPIHD_OUT_IDX, 0, 0);
-            gpio_matrix_in(FLASH_SPIHD_IO, SPIHD_IN_IDX, 0);
+            esp_rom_gpio_connect_out_signal(FLASH_CS_IO, SPICS0_OUT_IDX, 0, 0);
+            esp_rom_gpio_connect_out_signal(FLASH_SPIQ_IO, SPIQ_OUT_IDX, 0, 0);
+            esp_rom_gpio_connect_in_signal(FLASH_SPIQ_IO, SPIQ_IN_IDX, 0);
+            esp_rom_gpio_connect_out_signal(FLASH_SPID_IO, SPID_OUT_IDX, 0, 0);
+            esp_rom_gpio_connect_in_signal(FLASH_SPID_IO, SPID_IN_IDX, 0);
+            esp_rom_gpio_connect_out_signal(FLASH_SPIWP_IO, SPIWP_OUT_IDX, 0, 0);
+            esp_rom_gpio_connect_in_signal(FLASH_SPIWP_IO, SPIWP_IN_IDX, 0);
+            esp_rom_gpio_connect_out_signal(FLASH_SPIHD_IO, SPIHD_OUT_IDX, 0, 0);
+            esp_rom_gpio_connect_in_signal(FLASH_SPIHD_IO, SPIHD_IN_IDX, 0);
             //select pin function gpio
             PIN_FUNC_SELECT(PERIPHS_IO_MUX_SD_DATA0_U, PIN_FUNC_GPIO);
             PIN_FUNC_SELECT(PERIPHS_IO_MUX_SD_DATA1_U, PIN_FUNC_GPIO);
@@ -368,9 +369,6 @@ static void wdt_reset_info_dump(int cpu)
         lsstat = DPORT_REG_READ(DPORT_APP_CPU_RECORD_PDEBUGLS0STAT_REG);
         lsaddr = DPORT_REG_READ(DPORT_APP_CPU_RECORD_PDEBUGLS0ADDR_REG);
         lsdata = DPORT_REG_READ(DPORT_APP_CPU_RECORD_PDEBUGLS0DATA_REG);
-#else
-        ESP_LOGE(TAG, "WDT reset info: &s CPU not support!\n", cpu_name);
-        return;
 #endif
     }
 
@@ -411,7 +409,9 @@ static void bootloader_check_wdt_reset(void)
     if (wdt_rst) {
         // if reset by WDT dump info from trace port
         wdt_reset_info_dump(0);
+#if !CONFIG_FREERTOS_UNICORE
         wdt_reset_info_dump(1);
+#endif
     }
     wdt_reset_cpu0_info_enable();
 }
@@ -457,7 +457,7 @@ esp_err_t bootloader_init(void)
     // config clock
     bootloader_clock_configure();
     // initialize uart console, from now on, we can use esp_log
-    bootloader_init_uart_console();
+    bootloader_console_init();
     /* print 2nd bootloader banner */
     bootloader_print_banner();
     // update flash ID

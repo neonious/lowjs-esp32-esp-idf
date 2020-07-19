@@ -15,10 +15,8 @@
 #include <string.h>
 #include <errno.h>
 
-#include "mesh_common.h"
-#include "sensor_client.h"
-
 #include "btc_ble_mesh_sensor_model.h"
+#include "sensor_client.h"
 #include "esp_ble_mesh_sensor_model_api.h"
 
 /* Sensor Client Models related functions */
@@ -503,6 +501,8 @@ void bt_mesh_sensor_client_cb_evt_to_btc(u32_t opcode, u8_t evt_type,
     params.ctx.recv_ttl = ctx->recv_ttl;
     params.ctx.recv_op = ctx->recv_op;
     params.ctx.recv_dst = ctx->recv_dst;
+    params.ctx.recv_rssi = ctx->recv_rssi;
+    params.ctx.send_ttl = ctx->send_ttl;
 
     cb_params.error_code = 0;
     cb_params.params = &params;
@@ -876,6 +876,8 @@ void bt_mesh_sensor_server_cb_evt_to_btc(u8_t evt_type,
     cb_params.ctx.recv_ttl = ctx->recv_ttl;
     cb_params.ctx.recv_op = ctx->recv_op;
     cb_params.ctx.recv_dst = ctx->recv_dst;
+    cb_params.ctx.recv_rssi = ctx->recv_rssi;
+    cb_params.ctx.send_ttl = ctx->send_ttl;
 
     if (val && len) {
         length = (len <= sizeof(cb_params.value)) ? len : sizeof(cb_params.value);

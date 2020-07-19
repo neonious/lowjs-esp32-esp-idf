@@ -20,6 +20,7 @@
 #include "mesh.h"
 #include "access.h"
 #include "settings.h"
+#include "fast_prov.h"
 #include "mesh_common.h"
 #include "proxy_client.h"
 #include "provisioner_prov.h"
@@ -111,7 +112,7 @@ enum {
     LOCAL_PUB_KEY,         /* Local public key is available */
     LINK_ACTIVE,           /* Link has been opened */
     WAIT_GEN_DHKEY,        /* Waiting for remote public key to generate DHKey */
-    HAVE_DHKEY,            /* DHKey has been calcualted */
+    HAVE_DHKEY,            /* DHKey has been calculated */
     SEND_CONFIRM,          /* Waiting to send Confirm value */
     WAIT_NUMBER,           /* Waiting for number input from user */
     WAIT_STRING,           /* Waiting for string input from user */
@@ -132,9 +133,9 @@ struct prov_link {
     u8_t  element_num;       /* element num of device */
     u8_t  ki_flags;          /* Key refresh flag and iv update flag */
     u32_t iv_index;          /* IV Index */
-    u8_t  auth_method;       /* choosed authentication method */
-    u8_t  auth_action;       /* choosed authentication action */
-    u8_t  auth_size;         /* choosed authentication size */
+    u8_t  auth_method;       /* Choosen authentication method */
+    u8_t  auth_action;       /* Choosen authentication action */
+    u8_t  auth_size;         /* Choosen authentication size */
     u16_t assign_addr;       /* Application assigned address for the device */
     u16_t unicast_addr;      /* unicast address allocated for device */
     bt_mesh_addr_t addr;     /* Device address */
@@ -276,7 +277,6 @@ struct bt_mesh_prov_ctx {
     struct {
         bool  enable;
         u16_t net_idx;
-        const u8_t *net_key;
         u8_t  flags;
         u32_t iv_index;
         u16_t unicast_addr_min;
@@ -474,7 +474,7 @@ const struct bt_mesh_prov *bt_mesh_provisioner_get_prov_info(void)
     return prov;
 }
 
-void bt_mesh_provisoner_restore_prov_info(u16_t primary_addr, u16_t alloc_addr)
+void bt_mesh_provisioner_restore_prov_info(u16_t primary_addr, u16_t alloc_addr)
 {
     prov_ctx.primary_addr = primary_addr;
     prov_ctx.curr_alloc_addr = alloc_addr;
@@ -675,7 +675,7 @@ static int provisioner_start_prov_pb_adv(const u8_t uuid[16], const bt_mesh_addr
             }
             send_link_open(i);
             /* If the application layer assigned a specific unicast address for the device,
-             * then Provisioner will use this address in the Provisoning Data PDU.
+             * then Provisioner will use this address in the Provisioning Data PDU.
              */
             if (BLE_MESH_ADDR_IS_UNICAST(assign_addr)) {
                 link[i].assign_addr = assign_addr;
@@ -740,7 +740,7 @@ static int provisioner_start_prov_pb_gatt(const u8_t uuid[16], const bt_mesh_add
                 return -EIO;
             }
             /* If the application layer assigned a specific unicast address for the device,
-             * then Provisioner will use this address in the Provisoning Data PDU.
+             * then Provisioner will use this address in the Provisioning Data PDU.
              */
             if (BLE_MESH_ADDR_IS_UNICAST(assign_addr)) {
                 link[i].assign_addr = assign_addr;
@@ -785,7 +785,7 @@ int bt_mesh_provisioner_add_unprov_dev(struct bt_mesh_unprov_dev_add *add_dev, u
 
     if ((add_dev->bearer & BLE_MESH_PROV_ADV) && (add_dev->bearer & BLE_MESH_PROV_GATT) &&
             (flags & START_PROV_NOW)) {
-        BT_ERR("%s, Can not start PB-ADV & PB-GATT simultaneouly", __func__);
+        BT_ERR("%s, Can not start PB-ADV & PB-GATT simultaneously", __func__);
         return -EINVAL;
     }
 
@@ -950,7 +950,7 @@ int bt_mesh_provisioner_prov_device_with_addr(const u8_t uuid[16], const u8_t ad
     }
 
     /* Here we will not check if the assigned unicast address is overlapped
-     * with the unicast addresses of other nodes or Provisioner, beacuse:
+     * with the unicast addresses of other nodes or Provisioner, because:
      * 1. At this moment, the element number of the device is unknown
      * 2. If the node is a reprovisioned device, then the original allocated
      *    unicast address will be used.
@@ -1134,7 +1134,7 @@ int bt_mesh_provisioner_set_prov_info(void)
 
     if (prov_ctx.primary_addr == BLE_MESH_ADDR_UNASSIGNED) {
         /* If unicast address of primary element of Provisioner has not been set
-         * before, then the following initilization procedure will be used.
+         * before, then the following initialization procedure will be used.
          */
         if (!BLE_MESH_ADDR_IS_UNICAST(prov->prov_unicast_addr) ||
             !BLE_MESH_ADDR_IS_UNICAST(prov->prov_start_address)) {
@@ -1280,17 +1280,9 @@ void bt_mesh_provisioner_fast_prov_enable(bool enable)
     prov_ctx.fast_prov.enable = enable;
 }
 
-u8_t bt_mesh_provisioner_set_fast_prov_net_idx(const u8_t *net_key, u16_t net_idx)
+void bt_mesh_provisioner_set_fast_prov_net_idx(u16_t net_idx)
 {
     prov_ctx.fast_prov.net_idx = net_idx;
-    prov_ctx.fast_prov.net_key = net_key;
-
-    if (!net_key) {
-        BT_WARN("Wait for NetKey for fast provisioning");
-        return 0x01; /*status: wait for net_key */
-    }
-
-    return 0x0; /* status: success */
 }
 
 u16_t bt_mesh_provisioner_get_fast_prov_net_idx(void)
@@ -1325,7 +1317,7 @@ u8_t bt_mesh_set_fast_prov_unicast_addr_range(u16_t min, u16_t max)
 
 void bt_mesh_set_fast_prov_flags_iv_index(u8_t flags, u32_t iv_index)
 {
-    /* BIT0: Key Refreash flag, BIT1: IV Update flag */
+    /* BIT0: Key Refresh flag, BIT1: IV Update flag */
     prov_ctx.fast_prov.flags = flags & BIT_MASK(2);
     prov_ctx.fast_prov.iv_index = iv_index;
 }
@@ -1892,7 +1884,7 @@ static void prov_capabilities(const u8_t idx, const u8_t *data)
         }
     }
 
-    /* Store provisioning capbilities value in conf_inputs */
+    /* Store provisioning capabilities value in conf_inputs */
     memcpy(&link[idx].conf_inputs[1], data, 11);
 
     prov_buf_init(&buf, PROV_START);
@@ -2020,7 +2012,7 @@ static int prov_auth(const u8_t idx, u8_t method, u8_t action, u8_t size)
             return -EINVAL;
         }
 
-        /* Provisioner ouputs number/string and wait for device's Provisioning Input Complete PDU */
+        /* Provisioner ouput number/string and wait for device's Provisioning Input Complete PDU */
         link[idx].expect = PROV_INPUT_COMPLETE;
 
         if (input == BLE_MESH_ENTER_STRING) {
@@ -2456,10 +2448,10 @@ static void send_prov_data(const u8_t idx)
      * will be added to the primary subnet, and may add an API to choose to which
      * subnet will the device be provisioned later.
      */
-    if (FAST_PROV_ENABLE()) {
-        netkey = prov_ctx.fast_prov.net_key;
+    if (IS_ENABLED(CONFIG_BLE_MESH_FAST_PROV) && FAST_PROV_ENABLE()) {
+        netkey = bt_mesh_fast_prov_net_key_get(prov_ctx.fast_prov.net_idx);
         if (!netkey) {
-            BT_ERR("%s, Failed to get NetKey for fast provisioning", __func__);
+            BT_ERR("No NetKey for fast provisioning");
             goto fail;
         }
         memcpy(pdu, netkey, 16);
@@ -2469,7 +2461,7 @@ static void send_prov_data(const u8_t idx)
     } else {
         netkey = bt_mesh_provisioner_net_key_get(prov_ctx.curr_net_idx);
         if (!netkey) {
-            BT_ERR("%s, Failed to get NetKey for provisioning data", __func__);
+            BT_ERR("No NetKey for provisioning data");
             goto fail;
         }
         memcpy(pdu, netkey, 16);
@@ -2492,7 +2484,7 @@ static void send_prov_data(const u8_t idx)
         if (link[idx].element_num <= node->element_num) {
             /**
              * If the device is provisioned before, but the element number of
-             * the device is bigger now, then we treate it as a new device.
+             * the device is bigger now, then we treat it as a new device.
              */
             prev_addr = node->unicast_addr;
         }
@@ -2580,7 +2572,7 @@ static void send_prov_data(const u8_t idx)
         }
     }
 
-    if (FAST_PROV_ENABLE()) {
+    if (IS_ENABLED(CONFIG_BLE_MESH_FAST_PROV) && FAST_PROV_ENABLE()) {
         link[idx].ki_flags = prov_ctx.fast_prov.flags;
         link[idx].iv_index = prov_ctx.fast_prov.iv_index;
     } else {
@@ -2668,7 +2660,7 @@ static void prov_complete(const u8_t idx, const u8_t *data)
         return;
     }
 
-    if (FAST_PROV_ENABLE()) {
+    if (IS_ENABLED(CONFIG_BLE_MESH_FAST_PROV) && FAST_PROV_ENABLE()) {
         net_idx = prov_ctx.fast_prov.net_idx;
     } else {
         net_idx = prov_ctx.curr_net_idx;
@@ -3039,7 +3031,7 @@ static void gen_prov_start(const u8_t idx, struct prov_rx *rx, struct net_buf_si
     if (link[idx].rx.buf->len > link[idx].rx.buf->size) {
         BT_ERR("%s, Too large provisioning PDU (%u bytes)",
                __func__, link[idx].rx.buf->len);
-        // close_link(i, CLOSE_REASON_FAILED);
+        close_link(idx, CLOSE_REASON_FAILED);
         return;
     }
 

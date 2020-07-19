@@ -206,7 +206,12 @@ test_weekend_network:
 
 example_test_001A:
   extends: .example_test_template
-  parallel: 5
+  parallel: 4
+  artifacts:
+      when: always
+      paths:
+        - $CI_PROJECT_DIR/examples/*/*/*.log
+      expire_in: 1 week
   tags:
     - ESP32
     - Example_WIFI
@@ -216,6 +221,13 @@ example_test_001B:
   tags:
     - ESP32
     - Example_EthKitV1
+
+example_test_001C:
+  extends: .example_test_template
+  parallel: 2
+  tags:
+    - ESP32
+    - Example_GENERIC
 
 example_test_002:
   extends: .example_test_template
@@ -245,13 +257,13 @@ example_test_004A:
   extends: .example_test_template
   tags:
     - ESP32
-    - Example_CAN1
+    - Example_TWAI1
 
 example_test_004B:
   extends: .example_test_template
   tags:
     - ESP32
-    - Example_CAN2
+    - Example_TWAI2
 
 example_test_005:
   extends: .example_test_template
@@ -293,37 +305,13 @@ example_test_009:
       expire_in: 1 week
   variables:
     SETUP_TOOLS: "1"
+    PYTHON_VER: 3
 
 example_test_010:
   extends: .example_test_template
   tags:
     - ESP32
     - Example_ExtFlash
-
-test_app_test_001:
-  extends: .test_app_template
-  tags:
-    - ESP32
-    - test_jtag_arm
-  artifacts:
-      when: always
-      paths:
-        - $CI_PROJECT_DIR/tools/test_apps/system/gdb_loadable_elf/*.log
-      expire_in: 1 week
-  variables:
-    SETUP_TOOLS: "1"
-
-test_app_test_002:
-  extends: .test_app_template
-  tags:
-    - ESP32
-    - Example_WIFI
-
-test_app_test_003:
-  extends: .test_app_template
-  tags:
-    - ESP32
-    - Example_PPP
 
 example_test_011:
   extends: .example_debug_template
@@ -351,9 +339,54 @@ example_test_013:
     - ESP32
     - UT_T1_SDMODE
 
+example_test_014:
+  extends: .example_test_template
+  tags:
+    - ESP32
+    - 8Mpsram
+
+example_test_015:
+  extends: .example_test_template
+  tags:
+    - ESP32
+    - Example_PPP
+  artifacts:
+      when: always
+      expire_in: 1 week
+      paths:
+        - $CI_PROJECT_DIR/examples/*/*/*.log
+        - $LOG_PATH
+
+test_app_test_001:
+  extends: .test_app_template
+  parallel: 2
+  tags:
+    - ESP32
+    - test_jtag_arm
+  artifacts:
+      when: always
+      paths:
+        - $CI_PROJECT_DIR/tools/test_apps/system/*/*.log
+      expire_in: 1 week
+  variables:
+    SETUP_TOOLS: "1"
+    PYTHON_VER: 3
+
+test_app_test_002:
+  extends: .test_app_template
+  tags:
+    - ESP32
+    - Example_WIFI
+
+test_app_test_003:
+  extends: .test_app_template
+  tags:
+    - ESP32
+    - Example_PPP
+
 UT_001:
   extends: .unit_test_template
-  parallel: 38
+  parallel: 39
   tags:
     - ESP32_IDF
     - UT_T1_1
@@ -516,7 +549,7 @@ UT_034:
 
 UT_035:
   extends: .unit_test_s2_template
-  parallel: 34
+  parallel: 38
   tags:
     - ESP32S2_IDF
     - UT_T1_1

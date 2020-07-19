@@ -15,7 +15,6 @@ else()
         "cache_err_int.c"
         "cache_sram_mmu.c"
         "clk.c"
-        "cpu_start.c"
         "crosscore_int.c"
         "dport_access.c"
         "esp_himem.c"
@@ -36,7 +35,7 @@ else()
     # app_update is added here because cpu_start.c uses esp_ota_get_app_description() function.
     # esp_timer is added here because cpu_start.c uses esp_timer
     set(priv_requires app_trace app_update bootloader_support log mbedtls nvs_flash pthread
-        spi_flash vfs espcoredump esp_common perfmon esp_timer)
+        spi_flash vfs espcoredump esp_common perfmon esp_timer esp_ipc)
     set(fragments linker.lf ld/esp32_fragments.lf)
 
     idf_component_register(SRCS "${srcs}"
@@ -48,8 +47,6 @@ else()
 
     target_linker_script(${COMPONENT_LIB} INTERFACE "${CMAKE_CURRENT_BINARY_DIR}/esp32_out.ld")
 
-    # Rely on user code to define app_main
-    target_link_libraries(${COMPONENT_LIB} INTERFACE "-u app_main")
 
     if(CONFIG_SPIRAM_ALLOW_BSS_SEG_EXTERNAL_MEMORY)
         # This has to be linked before esp32.project.ld

@@ -1,6 +1,5 @@
 set(srcs
     "adc_common.c"
-    "can.c"
     "dac.c"
     "gpio.c"
     "i2c.c"
@@ -21,6 +20,7 @@ set(srcs
     "spi_bus_lock.c"
     "timer.c"
     "touch_sensor_common.c"
+    "twai.c"
     "uart.c")
 
 set(includes "include")
@@ -48,7 +48,7 @@ endif()
 idf_component_register(SRCS "${srcs}"
                     INCLUDE_DIRS ${includes}
                     PRIV_INCLUDE_DIRS "include/driver"
-                    PRIV_REQUIRES efuse esp_timer
+                    PRIV_REQUIRES efuse esp_timer esp_ipc
                     REQUIRES esp_ringbuf freertos soc) #cannot totally hide soc headers, since there are a lot arguments in the driver are chip-dependent
 
 # uses C11 atomic feature
