@@ -19,6 +19,7 @@
 #include "soc/io_mux_reg.h"
 #include "soc/gpio_periph.h"
 #include "soc/gpio_sig_map.h"
+#include "esp32/rom/gpio.h"
 #include "soc/rtc.h"
 #include "hal/clk_gate_ll.h"
 #ifdef CONFIG_IDF_TARGET_ESP32
@@ -32,19 +33,15 @@
 #endif
 #include "esp_rom_gpio.h"
 
-#ifdef CONFIG_ESP_CONSOLE_UART_NONE
 void bootloader_console_init(void)
 {
+#if CONFIG_ESP_CONSOLE_UART_NONE
     ets_install_putc1(NULL);
     ets_install_putc2(NULL);
-}
-#endif // CONFIG_ESP_CONSOLE_UART_NONE
-
-#ifdef CONFIG_ESP_CONSOLE_UART
-void bootloader_console_init(void)
-{
+#else // CONFIG_ESP_CONSOLE_UART_NONE
     const int uart_num = CONFIG_ESP_CONSOLE_UART_NUM;
 
+    uartAttach();
     ets_install_uart_printf();
 
     // Wait for UART FIFO to be empty.
@@ -59,29 +56,39 @@ void bootloader_console_init(void)
     uart_tx_switch(uart_num);
     // If console is attached to UART1 or if non-default pins are used,
     // need to reconfigure pins using GPIO matrix
-    if (uart_num != 0 ||
-            uart_tx_gpio != UART_NUM_0_TXD_DIRECT_GPIO_NUM ||
-            uart_rx_gpio != UART_NUM_0_RXD_DIRECT_GPIO_NUM) {
-        // Change default UART pins back to GPIOs
-        PIN_FUNC_SELECT(PERIPHS_IO_MUX_U0RXD_U, PIN_FUNC_GPIO);
-        PIN_FUNC_SELECT(PERIPHS_IO_MUX_U0TXD_U, PIN_FUNC_GPIO);
+    if (uart_num != 0 || uart_tx_gpio != 1 || uart_rx_gpio != 3) {
+        // Change pin mode for GPIO1/3 from UART to GPIO
+        PIN_FUNC_SELECT(PERIPHS_IO_MUX_U0RXD_U, FUNC_U0RXD_GPIO3);
+        PIN_FUNC_SELECT(PERIPHS_IO_MUX_U0TXD_U, FUNC_U0TXD_GPIO1);
         // Route GPIO signals to/from pins
-        const uint32_t tx_idx = uart_periph_signal[uart_num].tx_sig;
-        const uint32_t rx_idx = uart_periph_signal[uart_num].rx_sig;
-        PIN_INPUT_ENABLE(GPIO_PIN_MUX_REG[uart_rx_gpio]);
-        esp_rom_gpio_pad_pullup_only(uart_rx_gpio);
-        esp_rom_gpio_connect_out_signal(uart_tx_gpio, tx_idx, 0, 0);
-        esp_rom_gpio_connect_in_signal(uart_rx_gpio, rx_idx, 0);
-        // Enable the peripheral
-        periph_ll_enable_clk_clear_rst(PERIPH_UART0_MODULE + uart_num);
+        // (arrays should be optimized away by the compiler)
+        const uint32_t tx_idx_list[3] = {U0TXD_OUT_IDX, U1TXD_OUT_IDX, U2TXD_OUT_IDX};
+        const uint32_t rx_idx_list[3] = {U0RXD_IN_IDX, U1RXD_IN_IDX, U2RXD_IN_IDX};
+        const uint32_t uart_reset[3] = {DPORT_UART_RST, DPORT_UART1_RST, DPORT_UART2_RST};
+        const uint32_t tx_idx = tx_idx_list[uart_num];
+        const uint32_t rx_idx = rx_idx_list[uart_num];
+
+        if(uart_rx_gpio >= 0)
+        {
+                PIN_INPUT_ENABLE(GPIO_PIN_MUX_REG[uart_rx_gpio]);
+                gpio_pad_pullup(uart_rx_gpio);
+        }
+        if(uart_tx_gpio >= 0)
+                gpio_matrix_out(uart_tx_gpio, tx_idx, 0, 0);
+        if(uart_rx_gpio >= 0)
+                gpio_matrix_in(uart_rx_gpio, rx_idx, 0);
+
+        DPORT_SET_PERI_REG_MASK(DPORT_PERIP_RST_EN_REG, uart_reset[uart_num]);
+        DPORT_CLEAR_PERI_REG_MASK(DPORT_PERIP_RST_EN_REG, uart_reset[uart_num]);
     }
 #endif // CONFIG_ESP_CONSOLE_UART_CUSTOM
 
     // Set configured UART console baud rate
     const int uart_baud = CONFIG_ESP_CONSOLE_UART_BAUDRATE;
     uart_div_modify(uart_num, (rtc_clk_apb_freq_get() << 4) / uart_baud);
+
+#endif // CONFIG_ESP_CONSOLE_UART_NONE
 }
-#endif // CONFIG_ESP_CONSOLE_UART
 
 #ifdef CONFIG_ESP_CONSOLE_USB_CDC
 /* Buffer for CDC data structures. No RX buffer allocated. */

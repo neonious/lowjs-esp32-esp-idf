@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include "soc/soc_caps.h"
-#ifdef SOC_CAN_SUPPORTED
 
 #include "sdkconfig.h"
 #include "freertos/FreeRTOS.h"
@@ -712,4 +711,3 @@ esp_err_t can_clear_receive_queue(void)
 
     return ESP_OK;
 }
-#endif

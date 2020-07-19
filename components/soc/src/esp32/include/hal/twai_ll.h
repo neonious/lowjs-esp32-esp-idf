@@ -78,13 +78,11 @@ typedef union {
                 uint8_t data[8];        //Data bytes (0 to 8)
             } extended;
         };
-        int space;
         int *notifyPtr;
     };
     uint8_t bytes[13 + 4];
 } __attribute__((packed)) twai_ll_frame_buffer_t;
 
-_Static_assert(sizeof(twai_ll_frame_buffer_t) == 17, "TX/RX buffer type should be 17 bytes");
 
 /* ---------------------------- Mode Register ------------------------------- */
 
