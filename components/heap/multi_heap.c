@@ -34,6 +34,7 @@
 const char *TAG = "multi_heap";
 
 multi_heap_handle_t gSysAllocAllowedMSpace;
+extern void *gCodeStartMutex;
 
 #ifndef MULTI_HEAP_POISONING
 
@@ -135,8 +136,6 @@ static IRAM_ATTR __attribute__((noinline)) void get_call_stack(void **callers)
     TEST_STACK(5);
     TEST_STACK(6);
     TEST_STACK(7);
-    TEST_STACK(8);
-    TEST_STACK(9);
 }
 
 
@@ -145,6 +144,22 @@ void *multi_heap_malloc_impl(multi_heap_handle_t heap, size_t size)
     if (size == 0 || heap == NULL)
         return NULL;
 
+    // HACK: Seems like Espressif allocates a large emergency buffer
+    // in eh_frame.cc. Returning NULL disables the emergency buffer
+    // Code in comment can be used to verify we are doing the right thing
+    if(size == 1310720 && !gCodeStartMutex)
+       return NULL;
+/*
+        {
+    ESP_EARLY_LOGI(TAG, "ALLOC %d\n", size);
+    void *alloced_by[STACK_DEPTH];
+get_call_stack(alloced_by);
+            for (int j = 1; j < STACK_DEPTH; j++) {
+                ESP_EARLY_LOGI(TAG,"stack%d %p:", j, alloced_by[j]);
+            }
+            return NULL;
+        }
+*/
     void *p = mspace_malloc(heap, size);
 #if DEBUG_OUTPUT_ALLOC
     if(p && gCodeInited && ((uint32_t)p < 0x3f800000 || (uint32_t)p >= 0x3fc00000))
