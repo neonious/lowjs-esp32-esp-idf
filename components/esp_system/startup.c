@@ -394,9 +394,10 @@ IRAM_ATTR ESP_SYSTEM_INIT_FN(init_components0, BIT(0))
 #endif
 
 #ifdef CONFIG_COMPILER_CXX_EXCEPTIONS
-    ESP_EARLY_LOGD(TAG, "Setting C++ exception workarounds.");
-    _Unwind_SetNoFunctionContextInstall(1);
-    _Unwind_SetEnableExceptionFdeSorting(0);
+    // Not needed with new toolchain
+    //ESP_EARLY_LOGD(TAG, "Setting C++ exception workarounds.");
+    //_Unwind_SetNoFunctionContextInstall(1);
+    //_Unwind_SetEnableExceptionFdeSorting(0);
 #endif // CONFIG_COMPILER_CXX_EXCEPTIONS
 }
 
