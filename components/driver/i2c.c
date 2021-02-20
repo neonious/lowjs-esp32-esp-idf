@@ -1270,7 +1270,7 @@ esp_err_t i2c_master_cmd_begin_part1(i2c_port_t i2c_num, i2c_cmd_handle_t cmd_ha
     return ESP_OK;
 }
 
-esp_err_t i2c_master_cmd_begin_part2(i2c_port_t i2c_num)
+esp_err_t i2c_master_cmd_begin_part2(i2c_port_t i2c_num, unsigned char wait)
 {
     esp_err_t ret = ESP_FAIL;
     i2c_obj_t* p_i2c = p_i2c_obj[i2c_num];
@@ -1281,7 +1281,7 @@ esp_err_t i2c_master_cmd_begin_part2(i2c_port_t i2c_num)
         // In master mode, since we don't have an interrupt to detective bus error or FSM state, what we do here is to make
         // sure the interrupt mechanism for master mode is still working.
         // If the command sending is not finished and there is no interrupt any more, the bus is probably dead caused by external noise.
-        portBASE_TYPE evt_res = xQueueReceive(p_i2c->cmd_evt_queue, &evt, portMAX_DELAY);
+        portBASE_TYPE evt_res = xQueueReceive(p_i2c->cmd_evt_queue, &evt, wait ? portMAX_DELAY : 0);
         if (evt_res == pdTRUE) {
             if (evt.type == I2C_CMD_EVT_DONE) {
                 if (p_i2c->status == I2C_STATUS_TIMEOUT) {

@@ -301,7 +301,7 @@ esp_err_t i2c_master_stop(i2c_cmd_handle_t cmd_handle);
 esp_err_t i2c_master_cmd_begin(i2c_port_t i2c_num, i2c_cmd_handle_t cmd_handle, TickType_t ticks_to_wait);
 
 esp_err_t i2c_master_cmd_begin_part1(i2c_port_t i2c_num, i2c_cmd_handle_t cmd_handle, TickType_t ticks_to_wait);
-esp_err_t i2c_master_cmd_begin_part2(i2c_port_t i2c_num);
+esp_err_t i2c_master_cmd_begin_part2(i2c_port_t i2c_num, unsigned char wait);
 
 /**
  * @brief I2C slave write data to internal ringbuffer, when tx fifo empty, isr will fill the hardware
