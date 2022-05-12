@@ -41,7 +41,7 @@
 
 [submodule "components/lwip/lwip"]
 	path = components/lwip/lwip
-	url = https://neonious.com:444/thomas/neon2-lwip
+	url = https://github.com/neonious/lowjs-esp32-lwip
 
 [submodule "components/mqtt/esp-mqtt"]
 	path = components/mqtt/esp-mqtt
